@@ -5,7 +5,7 @@ import lombok.Builder;
 @Builder
 public record TaskSearchFilter(
         Long eventId,
-        Long assignId,
+        Long assigneeId,
         Long authorId
 ) {
 }

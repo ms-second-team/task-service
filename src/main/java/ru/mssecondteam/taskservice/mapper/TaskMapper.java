@@ -2,7 +2,6 @@ package ru.mssecondteam.taskservice.mapper;
 
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import ru.mssecondteam.taskservice.dto.NewTaskRequest;
 import ru.mssecondteam.taskservice.dto.TaskDto;

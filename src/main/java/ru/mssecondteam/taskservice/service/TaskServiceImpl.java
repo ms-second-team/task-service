@@ -93,7 +93,7 @@ public class TaskServiceImpl implements TaskService {
     private List<Specification<Task>> searchFilterToSpecificationList(TaskSearchFilter searchFilter) {
         List<Specification<Task>> resultList = new ArrayList<>();
         resultList.add(TaskSpecification.eventIdEquals(searchFilter.eventId()));
-        resultList.add(TaskSpecification.assigneeIdEquals(searchFilter.assignId()));
+        resultList.add(TaskSpecification.assigneeIdEquals(searchFilter.assigneeId()));
         resultList.add(TaskSpecification.authorIdEquals(searchFilter.authorId()));
         return resultList.stream().filter(Objects::nonNull).toList();
     }
