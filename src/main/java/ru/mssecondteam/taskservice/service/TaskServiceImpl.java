@@ -41,8 +41,9 @@ public class TaskServiceImpl implements TaskService {
         final Task task = getTaskById(taskId);
         checkIfUserCanModifyTask(taskId, userId, task);
         taskMapper.updateTask(updateRequest, task);
-        log.info("Task with id '{}' was updated", taskId);
-        return task;
+        Task updatedTask = taskRepository.save(task);
+        log.info("Task with id '{}' was updated", updatedTask.getId());
+        return updatedTask;
     }
 
     @Override
@@ -76,7 +77,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private void checkIfUserCanModifyTask(Long taskId, Long userId, Task currentTask) {
-        if (!currentTask.getAssigneeId().equals(userId) || !currentTask.getAuthorId().equals(userId)) {
+        if (!(currentTask.getAssigneeId().equals(userId) || currentTask.getAuthorId().equals(userId))) {
             throw new NotAuthorizedException(String.format("User with id '%s' is not authorized to modify task with id " +
                     "'%s'", userId, taskId));
         }
