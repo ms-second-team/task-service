@@ -7,6 +7,7 @@ import ru.mssecondteam.taskservice.model.Task;
 import java.util.List;
 
 public interface TaskService {
+
     Task createTask(Long userId, Task task);
 
     Task updateTask(Long taskId, Long userId, TaskUpdateRequest updateRequest);

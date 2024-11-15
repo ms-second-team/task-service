@@ -1,5 +1,6 @@
 package ru.mssecondteam.taskservice.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -39,9 +40,9 @@ public class TaskController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TaskDto createTask(@RequestHeader("X-User-Id") Long userId,
-                              @RequestBody NewTaskRequest newTask) {
+                              @RequestBody @Valid NewTaskRequest newTask) {
         log.debug("Creating task '{}' by user with id '{}'", newTask.title(), userId);
-        validateDeadline(newTask);
+        validateDeadline(newTask.deadline());
         final Task task = taskMapper.toModel(newTask);
         final Task createdTask = taskService.createTask(userId, task);
         return taskMapper.toDto(createdTask);
@@ -52,6 +53,7 @@ public class TaskController {
                               @RequestHeader("X-User-Id") Long userId,
                               @RequestBody TaskUpdateRequest updateRequest) {
         log.debug("Updating task with id '{}' by user with id '{}'", taskId, userId);
+        validateDeadline(updateRequest.deadline());
         final Task updatedTask = taskService.updateTask(taskId, userId, updateRequest);
         return taskMapper.toDto(updatedTask);
     }
@@ -67,7 +69,8 @@ public class TaskController {
     @GetMapping
     public List<TaskDto> searchTasks(@RequestParam(defaultValue = "0") Integer page,
                                      @RequestParam(defaultValue = "10") Integer size,
-                                     TaskSearchFilter searchFilter) {
+                                     TaskSearchFilter searchFilter,
+                                     @RequestHeader("X-User-Id") Long userId) {
         List<Task> tasks = taskService.searchTasks(page, size, searchFilter);
         return taskMapper.toDtoList(tasks);
     }
@@ -80,9 +83,9 @@ public class TaskController {
         taskService.deleteTaskById(taskId, userId);
     }
 
-    private void validateDeadline(NewTaskRequest newTask) {
-        if (newTask.deadline().isBefore(LocalDateTime.now())) {
-            throw new DeadlineException("Deadline can not be in past: " + newTask.deadline());
+    private void validateDeadline(LocalDateTime deadline) {
+        if (deadline != null && deadline.isBefore(LocalDateTime.now())) {
+            throw new DeadlineException("Deadline can not be in past: " + deadline);
         }
     }
 }

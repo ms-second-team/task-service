@@ -11,13 +11,13 @@ public record TaskDto(
         Long id,
         String title,
         String description,
-        @JsonFormat(pattern = "HH:ss:mm dd.MM.yyyy")
+        @JsonFormat(pattern = "dd.MM.yyyy HH:mm")
         LocalDateTime createdAt,
-        @JsonFormat(pattern = "HH:ss:mm dd.MM.yyyy")
+        @JsonFormat(pattern = "dd.MM.yyyy HH:mm")
         LocalDateTime deadline,
         TaskStatus status,
         Long assigneeId,
         Long authorId,
-        Long event_id
+        Long eventId
 ) {
 }

@@ -50,5 +50,5 @@ public class Task {
     private Long authorId;
 
     @Column(name = "event_id")
-    private Long event_id;
+    private Long eventId;
 }
