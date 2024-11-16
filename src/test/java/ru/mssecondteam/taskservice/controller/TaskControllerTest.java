@@ -364,6 +364,66 @@ class TaskControllerTest {
 
     @Test
     @SneakyThrows
+    @DisplayName("Update task without title")
+    void updateTask_whenWithoutTitle_shouldReturn200Status() {
+        when(taskService.updateTask(taskId, userId, updateRequest))
+                .thenReturn(task);
+        when(taskMapper.toDto(task))
+                .thenReturn(taskDto);
+
+        updateRequest = TaskUpdateRequest.builder()
+                .status(TaskStatus.CANCELLED)
+                .description("desc")
+                .build();
+
+        mvc.perform(patch("/tasks/{taskId}", taskId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest))
+                        .header("X-User-Id", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(taskDto.id()), Long.class))
+                .andExpect(jsonPath("$.title", is(taskDto.title())))
+                .andExpect(jsonPath("$.description", is(taskDto.description())))
+                .andExpect(jsonPath("$.deadline", is(taskDto.deadline()
+                        .format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.status", is(taskDto.status().name())))
+                .andExpect(jsonPath("$.assigneeId", is(taskDto.assigneeId()), Long.class))
+                .andExpect(jsonPath("$.eventId", is(taskDto.eventId()), Long.class))
+                .andExpect(jsonPath("$.authorId", is(taskDto.authorId()), Long.class));
+
+        verify(taskService, times(1)).updateTask(taskId, userId, updateRequest);
+        verify(taskMapper, times(1)).toDto(task);
+    }
+
+    @Test
+    @SneakyThrows
+    @DisplayName("Update task, empty title")
+    void updateTask_whenEmptyTitle_shouldReturn200Status() {
+        when(taskService.updateTask(taskId, userId, updateRequest))
+                .thenReturn(task);
+        when(taskMapper.toDto(task))
+                .thenReturn(taskDto);
+
+        updateRequest = TaskUpdateRequest.builder()
+                .title("  ")
+                .status(TaskStatus.CANCELLED)
+                .description("desc")
+                .build();
+
+        mvc.perform(patch("/tasks/{taskId}", taskId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest))
+                        .header("X-User-Id", userId))
+                .andExpect(status().isBadRequest())
+                .andExpect(result -> assertTrue(result.getResolvedException() instanceof MethodArgumentNotValidException))
+                .andExpect(jsonPath("$.errors", hasValue("Title can not be empty")));
+
+        verify(taskService, never()).updateTask(any(), any(), any());
+        verify(taskMapper, never()).toDto(any());
+    }
+
+    @Test
+    @SneakyThrows
     @DisplayName("Update task, request without header")
     void updateTask_whenUserIdHeaderIsMissing_shouldReturn400Status() {
         mvc.perform(patch("/tasks/{taskId}", taskId)
@@ -433,7 +493,7 @@ class TaskControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(result -> assertTrue(result.getResolvedException() instanceof MethodArgumentNotValidException))
                 .andExpect(jsonPath("$.status", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.errors", hasValue("Deadline must be in future" )));
+                .andExpect(jsonPath("$.errors", hasValue("Deadline must be in future")));
 
         verify(taskService, never()).updateTask(any(), any(), any());
         verify(taskMapper, never()).toDto(any());
