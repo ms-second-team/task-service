@@ -18,7 +18,6 @@ import ru.mssecondteam.taskservice.dto.NewTaskRequest;
 import ru.mssecondteam.taskservice.dto.TaskDto;
 import ru.mssecondteam.taskservice.dto.TaskSearchFilter;
 import ru.mssecondteam.taskservice.dto.TaskUpdateRequest;
-import ru.mssecondteam.taskservice.exception.DeadlineException;
 import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
 import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.mapper.TaskMapper;
@@ -28,12 +27,10 @@ import ru.mssecondteam.taskservice.service.TaskService;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.List;
 
 import static java.time.format.DateTimeFormatter.ofPattern;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -328,9 +325,9 @@ class TaskControllerTest {
                         .content(objectMapper.writeValueAsString(newTask))
                         .header("X-User-Id", userId))
                 .andExpect(status().isBadRequest())
-                .andExpect(result -> assertTrue(result.getResolvedException() instanceof DeadlineException))
+                .andExpect(result -> assertTrue(result.getResolvedException() instanceof MethodArgumentNotValidException))
                 .andExpect(jsonPath("$.status", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.errors", hasValue("Deadline can not be in past: " + newTask.deadline())));
+                .andExpect(jsonPath("$.errors", hasValue("Deadline must be in future")));
 
         verify(taskMapper, never()).toModel(any());
         verify(taskService, never()).createTask(any(), any());
@@ -434,9 +431,9 @@ class TaskControllerTest {
                         .content(objectMapper.writeValueAsString(updateRequest))
                         .header("X-User-Id", userId))
                 .andExpect(status().isBadRequest())
-                .andExpect(result -> assertTrue(result.getResolvedException() instanceof DeadlineException))
+                .andExpect(result -> assertTrue(result.getResolvedException() instanceof MethodArgumentNotValidException))
                 .andExpect(jsonPath("$.status", is(HttpStatus.BAD_REQUEST.value())))
-                .andExpect(jsonPath("$.errors", hasValue("Deadline can not be in past: " + updateRequest.deadline())));
+                .andExpect(jsonPath("$.errors", hasValue("Deadline must be in future" )));
 
         verify(taskService, never()).updateTask(any(), any(), any());
         verify(taskMapper, never()).toDto(any());

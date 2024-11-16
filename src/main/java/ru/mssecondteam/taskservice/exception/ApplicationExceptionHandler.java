@@ -20,15 +20,6 @@ import java.util.Map;
 @Slf4j
 public class ApplicationExceptionHandler {
 
-    @ExceptionHandler(DeadlineException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponse handleDeadlineException(DeadlineException ex) {
-        Map<String, String> error = Map.of("error", ex.getLocalizedMessage());
-        ErrorResponse errorResponse = new ErrorResponse(error, HttpStatus.BAD_REQUEST.value(), LocalDateTime.now());
-        log.error(ex.getLocalizedMessage());
-        return errorResponse;
-    }
-
     @ExceptionHandler(NotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleNotFoundException(NotFoundException ex) {
