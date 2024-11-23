@@ -13,7 +13,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import ru.mssecondteam.taskservice.dto.TaskDto;
 import ru.mssecondteam.taskservice.dto.TaskSearchFilter;
 import ru.mssecondteam.taskservice.dto.TaskUpdateRequest;
 import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
@@ -24,7 +23,6 @@ import ru.mssecondteam.taskservice.model.TaskStatus;
 import ru.mssecondteam.taskservice.repository.TaskRepository;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
