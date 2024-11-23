@@ -11,22 +11,19 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import ru.mssecondteam.taskservice.dto.TaskDto;
 import ru.mssecondteam.taskservice.dto.TaskFullDto;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicFullDto;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicShortDto;
+import ru.mssecondteam.taskservice.dto.epic.dto.EpicResponseDto;
 import ru.mssecondteam.taskservice.dto.epic.dto.EpicUpdateRequest;
 import ru.mssecondteam.taskservice.dto.epic.dto.NewEpicRequest;
 import ru.mssecondteam.taskservice.mapper.EpicMapper;
 import ru.mssecondteam.taskservice.mapper.TaskMapper;
 import ru.mssecondteam.taskservice.model.Epic;
 import ru.mssecondteam.taskservice.model.Task;
-import ru.mssecondteam.taskservice.service.TaskService;
+import ru.mssecondteam.taskservice.service.impl.EpicServiceImpl;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.List;
 
 import static java.time.format.DateTimeFormatter.ofPattern;
 import static org.hamcrest.Matchers.*;
@@ -45,7 +42,7 @@ public class EpicControllerTest {
     private ObjectMapper mapper;
 
     @MockBean
-    private TaskService taskService;
+    private EpicServiceImpl epicService;
 
     @MockBean
     private EpicMapper epicMapper;
@@ -74,15 +71,15 @@ public class EpicControllerTest {
     @DisplayName("New Epic creation test. Successful")
     void createEpicOk() {
         NewEpicRequest epicRequest = createEpicRequest("epic", LocalDateTime.now().plusYears(1), 2L, 3L);
-        EpicShortDto epicShortDto = createShortDto(epicRequest.title(), epicRequest.eventId(),
+        EpicResponseDto epicResponseDto = createShortDto(epicRequest.title(), epicRequest.eventId(),
                 epicRequest.executiveId(), epicRequest.deadline());
 
         when(epicMapper.toEpicModel(any()))
                 .thenReturn(epic);
-        when(taskService.createEpic(any()))
+        when(epicService.createEpic(any()))
                 .thenReturn(epic);
-        when(epicMapper.toEpicShortDto(any()))
-                .thenReturn(epicShortDto);
+        when(epicMapper.toEpicResponseDto(any()))
+                .thenReturn(epicResponseDto);
 
         mvc.perform(post("/epics")
                         .content(mapper.writeValueAsString(epicRequest))
@@ -90,15 +87,15 @@ public class EpicControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id", is(epicShortDto.id()), Long.class))
-                .andExpect(jsonPath("$.title", is(epicShortDto.title())))
-                .andExpect(jsonPath("$.eventId", is(epicShortDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(epicShortDto.deadline().format(ofPattern(dateTimeFormat)))))
-                .andExpect(jsonPath("$.executiveId", is(epicShortDto.executiveId()), Long.class));
+                .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
+                .andExpect(jsonPath("$.title", is(epicResponseDto.title())))
+                .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
+                .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
-        verify(taskService, times(1)).createEpic(any());
+        verify(epicService, times(1)).createEpic(any());
         verify(epicMapper, times(1)).toEpicModel(any());
-        verify(epicMapper, times(1)).toEpicShortDto(any());
+        verify(epicMapper, times(1)).toEpicResponseDto(any());
     }
 
     @Test
@@ -114,7 +111,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(taskService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any());
     }
 
     @Test
@@ -130,7 +127,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(taskService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any());
     }
 
     @Test
@@ -146,7 +143,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(taskService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any());
     }
 
     @Test
@@ -162,7 +159,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(taskService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any());
     }
 
     @Test
@@ -178,7 +175,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(taskService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any());
     }
 
     @Test
@@ -188,13 +185,13 @@ public class EpicControllerTest {
         EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
                 .title("new title")
                 .build();
-        EpicShortDto epicShortDto = createShortDto(updateRequest.title(), 2L,
+        EpicResponseDto epicResponseDto = createShortDto(updateRequest.title(), 2L,
                 3L, LocalDateTime.now().plusYears(1));
 
-        when(taskService.updateEpic(anyLong(), any()))
+        when(epicService.updateEpic(anyLong(), any()))
                 .thenReturn(epic);
-        when(epicMapper.toEpicShortDto(any()))
-                .thenReturn(epicShortDto);
+        when(epicMapper.toEpicResponseDto(any()))
+                .thenReturn(epicResponseDto);
 
         mvc.perform(patch("/epics/1")
                         .content(mapper.writeValueAsString(updateRequest))
@@ -202,14 +199,14 @@ public class EpicControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", is(epicShortDto.id()), Long.class))
+                .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(updateRequest.title())))
-                .andExpect(jsonPath("$.eventId", is(epicShortDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(epicShortDto.deadline().format(ofPattern(dateTimeFormat)))))
-                .andExpect(jsonPath("$.executiveId", is(epicShortDto.executiveId()), Long.class));
+                .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
+                .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
-        verify(taskService, times(1)).updateEpic(anyLong(), any());
-        verify(epicMapper, times(1)).toEpicShortDto(any());
+        verify(epicService, times(1)).updateEpic(anyLong(), any());
+        verify(epicMapper, times(1)).toEpicResponseDto(any());
     }
 
     @Test
@@ -219,13 +216,13 @@ public class EpicControllerTest {
         EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
                 .executiveId(10L)
                 .build();
-        EpicShortDto epicShortDto = createShortDto(updateRequest.title(), 2L,
+        EpicResponseDto epicResponseDto = createShortDto(updateRequest.title(), 2L,
                 updateRequest.executiveId(), LocalDateTime.now().plusYears(1));
 
-        when(taskService.updateEpic(anyLong(), any()))
+        when(epicService.updateEpic(anyLong(), any()))
                 .thenReturn(epic);
-        when(epicMapper.toEpicShortDto(any()))
-                .thenReturn(epicShortDto);
+        when(epicMapper.toEpicResponseDto(any()))
+                .thenReturn(epicResponseDto);
 
         mvc.perform(patch("/epics/1")
                         .content(mapper.writeValueAsString(updateRequest))
@@ -233,14 +230,14 @@ public class EpicControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", is(epicShortDto.id()), Long.class))
-                .andExpect(jsonPath("$.title", is(epicShortDto.title())))
-                .andExpect(jsonPath("$.eventId", is(epicShortDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(epicShortDto.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
+                .andExpect(jsonPath("$.title", is(epicResponseDto.title())))
+                .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
+                .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
                 .andExpect(jsonPath("$.executiveId", is(updateRequest.executiveId()), Long.class));
 
-        verify(taskService, times(1)).updateEpic(anyLong(), any());
-        verify(epicMapper, times(1)).toEpicShortDto(any());
+        verify(epicService, times(1)).updateEpic(anyLong(), any());
+        verify(epicMapper, times(1)).toEpicResponseDto(any());
     }
 
     @Test
@@ -250,13 +247,13 @@ public class EpicControllerTest {
         EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
                 .deadline(LocalDateTime.now().plusYears(2))
                 .build();
-        EpicShortDto epicShortDto = createShortDto(updateRequest.title(), 2L,
+        EpicResponseDto epicResponseDto = createShortDto(updateRequest.title(), 2L,
                 3L, updateRequest.deadline());
 
-        when(taskService.updateEpic(anyLong(), any()))
+        when(epicService.updateEpic(anyLong(), any()))
                 .thenReturn(epic);
-        when(epicMapper.toEpicShortDto(any()))
-                .thenReturn(epicShortDto);
+        when(epicMapper.toEpicResponseDto(any()))
+                .thenReturn(epicResponseDto);
 
         mvc.perform(patch("/epics/1")
                         .content(mapper.writeValueAsString(updateRequest))
@@ -264,14 +261,14 @@ public class EpicControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", is(epicShortDto.id()), Long.class))
-                .andExpect(jsonPath("$.title", is(epicShortDto.title())))
-                .andExpect(jsonPath("$.eventId", is(epicShortDto.eventId()), Long.class))
+                .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
+                .andExpect(jsonPath("$.title", is(epicResponseDto.title())))
+                .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
                 .andExpect(jsonPath("$.deadline", is(updateRequest.deadline().format(ofPattern(dateTimeFormat)))))
-                .andExpect(jsonPath("$.executiveId", is(epicShortDto.executiveId()), Long.class));
+                .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
-        verify(taskService, times(1)).updateEpic(anyLong(), any());
-        verify(epicMapper, times(1)).toEpicShortDto(any());
+        verify(epicService, times(1)).updateEpic(anyLong(), any());
+        verify(epicMapper, times(1)).toEpicResponseDto(any());
     }
 
     @Test
@@ -288,8 +285,8 @@ public class EpicControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        verify(epicMapper, never()).toEpicShortDto(any());
-        verify(taskService, never()).updateEpic(anyLong(), any());
+        verify(epicMapper, never()).toEpicResponseDto(any());
+        verify(epicService, never()).updateEpic(anyLong(), any());
     }
 
     @Test
@@ -306,8 +303,8 @@ public class EpicControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        verify(epicMapper, never()).toEpicShortDto(any());
-        verify(taskService, never()).updateEpic(anyLong(), any());
+        verify(epicMapper, never()).toEpicResponseDto(any());
+        verify(epicService, never()).updateEpic(anyLong(), any());
     }
 
     @Test
@@ -324,8 +321,8 @@ public class EpicControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        verify(epicMapper, never()).toEpicShortDto(any());
-        verify(taskService, never()).updateEpic(anyLong(), any());
+        verify(epicMapper, never()).toEpicResponseDto(any());
+        verify(epicService, never()).updateEpic(anyLong(), any());
     }
 
     @Test
@@ -342,8 +339,8 @@ public class EpicControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        verify(epicMapper, never()).toEpicShortDto(any());
-        verify(taskService, never()).updateEpic(anyLong(), any());
+        verify(epicMapper, never()).toEpicResponseDto(any());
+        verify(epicService, never()).updateEpic(anyLong(), any());
     }
 
     @Test
@@ -353,7 +350,7 @@ public class EpicControllerTest {
         TaskFullDto taskFullDto = TaskFullDto.builder()
                 .epicId(epic.getId())
                 .build();
-        when(taskService.addTaskToEpic(anyLong(), anyLong(), anyLong()))
+        when(epicService.addTaskToEpic(anyLong(), anyLong(), anyLong()))
                 .thenReturn(task);
         when(taskMapper.toTaskFullDto(any()))
                 .thenReturn(taskFullDto);
@@ -364,7 +361,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.epicId", is(epic.getId()), Long.class));
 
         verify(taskMapper, times(1)).toTaskFullDto(any());
-        verify(taskService, times(1)).addTaskToEpic(anyLong(), anyLong(), anyLong());
+        verify(epicService, times(1)).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -376,7 +373,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(taskMapper, never()).toTaskFullDto(any());
-        verify(taskService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
+        verify(epicService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -388,7 +385,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(taskMapper, never()).toTaskFullDto(any());
-        verify(taskService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
+        verify(epicService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -400,7 +397,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(taskMapper, never()).toTaskFullDto(any());
-        verify(taskService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
+        verify(epicService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -411,79 +408,78 @@ public class EpicControllerTest {
                 .epicId(null)
                 .build();
 
-        when(taskService.deleteTaskFromEpic(anyLong(), anyLong(), anyLong()))
+        when(epicService.deleteTaskFromEpic(anyLong(), anyLong(), anyLong()))
                 .thenReturn(task);
         when(taskMapper.toTaskFullDto(any()))
                 .thenReturn(taskFullDto);
 
-        mvc.perform(patch("/epics/1/tasks/4/delete")
+        mvc.perform(delete("/epics/1/tasks/4/delete")
                         .header("X-User-Id", 2))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.epicId", is(nullValue())));
 
         verify(taskMapper, times(1)).toTaskFullDto(any());
-        verify(taskService, times(1)).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
+        verify(epicService, times(1)).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 
     @Test
     @SneakyThrows
     @DisplayName("Delete task from epic when epic id negative")
     void deleteTaskFromEpicFailNegativeEpicIdShouldReturnStatus400() {
-        mvc.perform(patch("/epics/-1/tasks/4/delete")
+        mvc.perform(delete("/epics/-1/tasks/4/delete")
                         .header("X-User-Id", 2))
                 .andExpect(status().isBadRequest());
 
         verify(taskMapper, never()).toTaskFullDto(any());
-        verify(taskService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
+        verify(epicService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 
     @Test
     @SneakyThrows
     @DisplayName("Delete task from epic when task id negative")
     void deleteTaskFromEpicFailNegativeTaskIdShouldReturnStatus400() {
-        mvc.perform(patch("/epics/1/tasks/-4/delete")
+        mvc.perform(delete("/epics/1/tasks/-4/delete")
                         .header("X-User-Id", 2))
                 .andExpect(status().isBadRequest());
 
         verify(taskMapper, never()).toTaskFullDto(any());
-        verify(taskService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
+        verify(epicService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 
     @Test
     @SneakyThrows
     @DisplayName("Delete task from epic when user id negative")
     void deleteTaskFromEpicNegativeUserIdShouldReturnStatus400() {
-        mvc.perform(patch("/epics/1/tasks/4/delete")
+        mvc.perform(delete("/epics/1/tasks/4/delete")
                         .header("X-User-Id", -2))
                 .andExpect(status().isBadRequest());
 
         verify(taskMapper, never()).toTaskFullDto(any());
-        verify(taskService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
+        verify(epicService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 
     @Test
     @SneakyThrows
     @DisplayName("Get epic by id with tasks. Success")
     void findEpicByIdWithTasks() {
-        EpicFullDto fullDto = createEpicFullDto(
-                LocalDateTime.now().plusYears(1), new ArrayList<>());
+        EpicResponseDto epicResponseDto = createShortDto("title", epic.getEventId(), 2L, LocalDateTime.now().plusYears(1));
 
-        when(taskService.updateEpic(anyLong(), any()))
+        when(epicService.updateEpic(anyLong(), any()))
                 .thenReturn(epic);
-        when(epicMapper.toEpicFullDto(any()))
-                .thenReturn(fullDto);
+        when(epicMapper.toEpicResponseDto(any()))
+                .thenReturn(epicResponseDto);
 
         mvc.perform(get("/epics/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", is(fullDto.id()), Long.class))
-                .andExpect(jsonPath("$.title", is(fullDto.title())))
-                .andExpect(jsonPath("$.eventId", is(fullDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(fullDto.deadline().format(ofPattern(dateTimeFormat)))))
-                .andExpect(jsonPath("$.executiveId", is(fullDto.executiveId()), Long.class))
+                .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
+                .andExpect(jsonPath("$.title", is(epicResponseDto.title())))
+                .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
+                .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class))
                 .andExpect(jsonPath("$.epicsTasks",is(notNullValue())));
 
-        verify(epicMapper, times(1)).toEpicFullDto(any());
-        verify(taskService, times(1)).findEpicById(anyLong());
+        verify(epicMapper, times(1)).toEpicResponseDto(any());
+        verify(epicService, times(1)).findEpicById(anyLong());
     }
 
     @Test
@@ -493,8 +489,8 @@ public class EpicControllerTest {
         mvc.perform(get("/epics/-1"))
                 .andExpect(status().isBadRequest());
 
-        verify(epicMapper, never()).toEpicFullDto(any());
-        verify(taskService, never()).findEpicById(anyLong());
+        verify(epicMapper, never()).toEpicResponseDto(any());
+        verify(epicService, never()).findEpicById(anyLong());
     }
 
     private NewEpicRequest createEpicRequest(String title, LocalDateTime deadline, Long eventId, Long executiveId) {
@@ -506,24 +502,14 @@ public class EpicControllerTest {
                 .build();
     }
 
-    private EpicShortDto createShortDto(String title, Long eventId, Long executiveId, LocalDateTime deadline) {
-        return EpicShortDto.builder()
+    private EpicResponseDto createShortDto(String title, Long eventId, Long executiveId, LocalDateTime deadline) {
+        return EpicResponseDto.builder()
                 .id(1L)
                 .title(title)
                 .eventId(eventId)
                 .executiveId(executiveId)
                 .deadline(deadline)
+                .epicsTasks(new ArrayList<>())
                 .build();
-    }
-
-    private EpicFullDto createEpicFullDto(LocalDateTime deadline,
-                                          List<TaskDto> epicsTasks) {
-        return EpicFullDto.builder()
-                .id(1L)
-                .title("title")
-                .eventId(2L)
-                .executiveId(3L)
-                .deadline(deadline)
-                .epicsTasks(epicsTasks).build();
     }
 }

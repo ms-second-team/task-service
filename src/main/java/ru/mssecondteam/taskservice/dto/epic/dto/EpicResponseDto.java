@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Builder
-public record EpicFullDto(
+public record EpicResponseDto(
         Long id,
         String title,
         Long executiveId,

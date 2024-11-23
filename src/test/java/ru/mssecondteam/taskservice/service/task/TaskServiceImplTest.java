@@ -1,4 +1,4 @@
-package ru.mssecondteam.taskservice.service;
+package ru.mssecondteam.taskservice.service.task;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,7 +20,8 @@ import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.mapper.TaskMapper;
 import ru.mssecondteam.taskservice.model.Task;
 import ru.mssecondteam.taskservice.model.TaskStatus;
-import ru.mssecondteam.taskservice.repository.TaskRepository;
+import ru.mssecondteam.taskservice.repository.task.TaskRepository;
+import ru.mssecondteam.taskservice.service.impl.TaskServiceImpl;
 
 import java.time.LocalDateTime;
 import java.util.Optional;

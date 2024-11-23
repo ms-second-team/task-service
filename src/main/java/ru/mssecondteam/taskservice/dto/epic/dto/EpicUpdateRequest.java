@@ -12,8 +12,10 @@ import java.time.LocalDateTime;
 public record EpicUpdateRequest(
         @Pattern(regexp = "^(?!\\s*$).+", message = "Title can not be empty")
         String title,
+
         @Positive(message = "Assignee Id must be positive")
         Long executiveId,
+
         @Future(message = "Deadline must be in future")
         @JsonFormat(pattern = "HH:ss:mm dd.MM.yyyy")
         LocalDateTime deadline
