@@ -14,8 +14,6 @@ import ru.mssecondteam.taskservice.repository.epic.EpicRepository;
 import ru.mssecondteam.taskservice.repository.task.TaskRepository;
 import ru.mssecondteam.taskservice.service.EpicService;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -44,35 +42,33 @@ public class EpicServiceImpl implements EpicService {
     }
 
     @Override
-    public Task addTaskToEpic(Long userId, Long epicId, Long taskId) {
+    public Epic addTaskToEpic(Long userId, Long epicId, Long taskId) {
         final Epic epic = getEpicById(epicId);
         checkIfUserCanModifyEpicsTasks(userId, epic);
         final Task task = getTaskById(taskId);
         checkIfTaskAndEpicBelongsToTheSameEvent(epic, task);
         checkIfTaskIsAvailableForAdding(task, epic);
-        task.setEpic(epic);
-        Task addedToEpicTask = taskRepository.save(task);
-        log.info("Task with id '{}' was added to Epic with id '{}'", addedToEpicTask.getId(), epicId);
-        return addedToEpicTask;
+        epic.addTask(task);
+        Epic epicWithAddedTask = epicRepository.save(epic);
+        log.info("Task with id '{}' was added to Epic with id '{}'", epicWithAddedTask.getId(), epicId);
+        return epicWithAddedTask;
     }
 
     @Override
-    public Task deleteTaskFromEpic(Long userId, Long epicId, Long taskId) {
+    public Epic deleteTaskFromEpic(Long userId, Long epicId, Long taskId) {
         final Epic epic = getEpicById(epicId);
         checkIfUserCanModifyEpicsTasks(userId, epic);
         final Task task = getTaskById(taskId);
         checkIfTaskBelongsToEpic(task, epic);
-        task.setEpic(null);
-        Task deletedFromEpicTask = taskRepository.save(task);
-        log.info("Task with id '{}' was deleted from Epic with id '{}'", deletedFromEpicTask.getId(), epicId);
-        return deletedFromEpicTask;
+        epic.removeTask(task);
+        Epic EpicWithDeletedTask = epicRepository.save(epic);
+        log.info("Task with id '{}' was deleted from Epic with id '{}'", task.getId(), epicId);
+        return EpicWithDeletedTask;
     }
 
     @Override
     public Epic findEpicById(Long epicId) {
         final Epic epic = getEpicById(epicId);
-        List<Task> epicsTasks = taskRepository.findAllByEpicId(epicId);
-        epic.setEpicsTasks(epicsTasks);
         log.debug("Epic with id '{}' was found", epicId);
         return epic;
     }

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -29,7 +30,23 @@ public class Epic {
 
     private LocalDateTime deadline;
 
-    @OneToMany(mappedBy = "epic")
+    @OneToMany(mappedBy = "epic", cascade = CascadeType.ALL)
     @ToString.Exclude
     private List<Task> epicsTasks;
+
+    public void addTask(Task task) {
+        if (epicsTasks == null) {
+            epicsTasks = new ArrayList<>();
+        }
+        epicsTasks.add(task);
+        task.setEpic(this);
+    }
+
+    public void removeTask(Task task) {
+        if (epicsTasks == null) {
+            epicsTasks = new ArrayList<>();
+        }
+        epicsTasks.remove(task);
+        task.setEpic(null);
+    }
 }

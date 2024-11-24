@@ -150,10 +150,11 @@ public class EpicServiceIntegrationTest {
         Task taskToAdd = taskService.createTask(userId, task);
         Epic epicToAdd = epicService.createEpic(epic);
 
-        Assertions.assertNull(taskToAdd.getEpic());
+        assertThat(taskToAdd.getEpic(), is(nullValue()));
 
-        Task addedTask = epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), taskToAdd.getId());
-        
+        epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), taskToAdd.getId());
+        Task addedTask = taskService.findTaskById(taskToAdd.getId());
+
         assertThat(addedTask, notNullValue());
         assertThat(addedTask.getId(), is(taskToAdd.getId()));
         assertThat(addedTask.getAuthorId(), is(taskToAdd.getAuthorId()));
@@ -173,7 +174,9 @@ public class EpicServiceIntegrationTest {
         Epic epicToAdd = epicService.createEpic(epic);
         Task taskToAdd = taskService.createTask(userId, task);
 
-        Task addedTask = epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), taskToAdd.getId());
+
+        epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), taskToAdd.getId());
+        Task addedTask = taskService.findTaskById(taskToAdd.getId());
 
         OperationNotAllowedException ex = assertThrows(OperationNotAllowedException.class,
                 () -> epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), addedTask.getId()));
@@ -240,14 +243,15 @@ public class EpicServiceIntegrationTest {
         Epic createdEpic = epicService.createEpic(epic);
         Task createdTask = taskService.createTask(userId, task);
 
-        Assertions.assertNull(createdTask.getEpic());
+        assertThat(createdTask.getEpic(), is(nullValue()));
 
-        Task addedTask = epicService.addTaskToEpic(createdEpic.getExecutiveId(), createdEpic.getId(), createdTask.getId());
+        epicService.addTaskToEpic(createdEpic.getExecutiveId(), createdEpic.getId(), createdTask.getId());
+        Task addedTask = taskService.findTaskById(createdTask.getId());
 
         assertThat(addedTask.getEpic().getId(), is(createdEpic.getId()));
 
-        Task deletedFromEpicTask =
-                epicService.deleteTaskFromEpic(createdEpic.getExecutiveId(), createdEpic.getId(), addedTask.getId());
+        epicService.deleteTaskFromEpic(createdEpic.getExecutiveId(), createdEpic.getId(), addedTask.getId());
+        Task deletedFromEpicTask = taskService.findTaskById(addedTask.getId());
 
         assertThat(deletedFromEpicTask, notNullValue());
         assertThat(deletedFromEpicTask.getId(), is(createdTask.getId()));
@@ -259,7 +263,7 @@ public class EpicServiceIntegrationTest {
         assertThat(deletedFromEpicTask.getStatus(), is(createdTask.getStatus()));
         assertThat(deletedFromEpicTask.getEventId(), is(createdTask.getEventId()));
         assertThat(deletedFromEpicTask.getCreatedAt(), is(createdTask.getCreatedAt()));
-        Assertions.assertNull(deletedFromEpicTask.getEpic());
+        assertThat(deletedFromEpicTask.getEpic(), is(nullValue()));
     }
 
     @Test
@@ -313,8 +317,7 @@ public class EpicServiceIntegrationTest {
         assertThat(retrievedEpic.getTitle(), is(createdEpic.getTitle()));
         assertThat(retrievedEpic.getEventId(), is(createdEpic.getEventId()));
         assertThat(retrievedEpic.getDeadline(), is(createdEpic.getDeadline()));
-        assertThat(retrievedEpic.getEpicsTasks(), notNullValue());
-        assertThat(retrievedEpic.getEpicsTasks().size(), is(0));
+        assertThat(retrievedEpic.getEpicsTasks(), is(nullValue()));
     }
 
     @Test

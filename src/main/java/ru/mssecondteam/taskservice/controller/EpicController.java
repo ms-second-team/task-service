@@ -47,21 +47,21 @@ public class EpicController {
     }
 
     @PatchMapping("/{epicId}/tasks/{taskId}")
-    public TaskDto addTaskToEpic(@RequestHeader("X-User-Id") @Positive Long userId,
+    public EpicResponseDto addTaskToEpic(@RequestHeader("X-User-Id") @Positive Long userId,
                                      @PathVariable @Positive Long epicId,
                                      @PathVariable @Positive Long taskId) {
         log.debug("Adding task with id '{}' to epic with id '{}' by user with id '{}'", taskId, epicId, userId);
-        final Task addedToEpicTask = epicService.addTaskToEpic(userId, epicId, taskId);
-        return taskMapper.toDto(addedToEpicTask);
+        final Epic epicWithAddedTask = epicService.addTaskToEpic(userId, epicId, taskId);
+        return epicMapper.toEpicResponseDto(epicWithAddedTask);
     }
 
     @DeleteMapping("/{epicId}/tasks/{taskId}/delete")
-    public TaskDto deleteTaskFromEpic(@RequestHeader("X-User-Id") @Positive Long userId,
+    public EpicResponseDto deleteTaskFromEpic(@RequestHeader("X-User-Id") @Positive Long userId,
                                       @PathVariable @Positive Long epicId,
                                       @PathVariable @Positive Long taskId) {
         log.debug("Deleting task with id '{}' from epic with id '{}' by user with id '{}'", taskId, epicId, userId);
-        final Task deletedFromEpicTask = epicService.deleteTaskFromEpic(userId, epicId, taskId);
-        return taskMapper.toDto(deletedFromEpicTask);
+        final Epic EpicWithDeletedTask = epicService.deleteTaskFromEpic(userId, epicId, taskId);
+        return epicMapper.toEpicResponseDto(EpicWithDeletedTask);
     }
 
     @GetMapping("/{epicId}")

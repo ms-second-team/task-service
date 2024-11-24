@@ -354,16 +354,14 @@ public class EpicControllerTest {
                 .epic(responseDto)
                 .build();
         when(epicService.addTaskToEpic(anyLong(), anyLong(), anyLong()))
-                .thenReturn(task);
+                .thenReturn(epic);
         when(taskMapper.toDto(any()))
                 .thenReturn(taskFullDto);
 
         mvc.perform(patch("/epics/1/tasks/4")
                         .header("X-User-Id", 2))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.epic.id", is(responseDto.id()), Long.class));
+                .andExpect(status().isOk());
 
-        verify(taskMapper, times(1)).toDto(any());
         verify(epicService, times(1)).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -407,21 +405,17 @@ public class EpicControllerTest {
     @SneakyThrows
     @DisplayName("Delete task from epic. Success")
     void deleteTaskFromEpicShouldReturnStatus200() {
-        TaskDto taskFullDto = TaskDto.builder()
+        TaskDto taskDto = TaskDto.builder()
                 .epic(null)
                 .build();
 
         when(epicService.deleteTaskFromEpic(anyLong(), anyLong(), anyLong()))
-                .thenReturn(task);
-        when(taskMapper.toDto(any()))
-                .thenReturn(taskFullDto);
+                .thenReturn(epic);
 
         mvc.perform(delete("/epics/1/tasks/4/delete")
                         .header("X-User-Id", 2))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.epic", is(nullValue())));
+                .andExpect(status().isOk());
 
-        verify(taskMapper, times(1)).toDto(any());
         verify(epicService, times(1)).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 

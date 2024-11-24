@@ -9,9 +9,9 @@ public interface EpicService {
 
     Epic updateEpic(Long epicId, EpicUpdateRequest updateRequest);
 
-    Task addTaskToEpic(Long userId, Long epicId, Long taskId);
+    Epic addTaskToEpic(Long userId, Long epicId, Long taskId);
 
-    Task deleteTaskFromEpic(Long userId, Long epicId, Long taskId);
+    Epic deleteTaskFromEpic(Long userId, Long epicId, Long taskId);
 
     Epic findEpicById(Long epicId);
 }
