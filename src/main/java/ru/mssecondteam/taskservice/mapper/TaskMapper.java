@@ -12,7 +12,7 @@ import java.util.List;
 
 import static org.mapstruct.NullValuePropertyMappingStrategy.IGNORE;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = EpicMapper.class)
 public interface TaskMapper {
 
     TaskDto toDto(Task task);

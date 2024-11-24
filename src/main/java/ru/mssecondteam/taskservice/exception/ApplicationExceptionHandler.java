@@ -1,5 +1,6 @@
 package ru.mssecondteam.taskservice.exception;
 
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
@@ -41,6 +42,24 @@ public class ApplicationExceptionHandler {
     @ExceptionHandler
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleNotAuthorizedException(NotAuthorizedException ex) {
+        Map<String, String> error = Map.of("error", ex.getLocalizedMessage());
+        ErrorResponse errorResponse = new ErrorResponse(error, HttpStatus.FORBIDDEN.value(), LocalDateTime.now());
+        log.error(ex.getLocalizedMessage());
+        return errorResponse;
+    }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleOperationNotAllowedException(OperationNotAllowedException ex) {
+        Map<String, String> error = Map.of("error", ex.getLocalizedMessage());
+        ErrorResponse errorResponse = new ErrorResponse(error, HttpStatus.FORBIDDEN.value(), LocalDateTime.now());
+        log.error(ex.getLocalizedMessage());
+        return errorResponse;
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleConstraintViolationException(ConstraintViolationException ex) {
         Map<String, String> error = Map.of("error", ex.getLocalizedMessage());
         ErrorResponse errorResponse = new ErrorResponse(error, HttpStatus.FORBIDDEN.value(), LocalDateTime.now());
         log.error(ex.getLocalizedMessage());
