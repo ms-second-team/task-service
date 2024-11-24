@@ -153,7 +153,7 @@ public class EpicServiceIntegrationTest {
         Assertions.assertNull(taskToAdd.getEpic());
 
         Task addedTask = epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), taskToAdd.getId());
-
+        
         assertThat(addedTask, notNullValue());
         assertThat(addedTask.getId(), is(taskToAdd.getId()));
         assertThat(addedTask.getAuthorId(), is(taskToAdd.getAuthorId()));

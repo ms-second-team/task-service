@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.mssecondteam.taskservice.dto.TaskFullDto;
+import ru.mssecondteam.taskservice.dto.TaskDto;
 import ru.mssecondteam.taskservice.dto.epic.dto.EpicResponseDto;
 import ru.mssecondteam.taskservice.dto.epic.dto.EpicUpdateRequest;
 import ru.mssecondteam.taskservice.dto.epic.dto.NewEpicRequest;
@@ -47,21 +47,21 @@ public class EpicController {
     }
 
     @PatchMapping("/{epicId}/tasks/{taskId}")
-    public TaskFullDto addTaskToEpic(@RequestHeader("X-User-Id") @Positive Long userId,
+    public TaskDto addTaskToEpic(@RequestHeader("X-User-Id") @Positive Long userId,
                                      @PathVariable @Positive Long epicId,
                                      @PathVariable @Positive Long taskId) {
         log.debug("Adding task with id '{}' to epic with id '{}' by user with id '{}'", taskId, epicId, userId);
         final Task addedToEpicTask = epicService.addTaskToEpic(userId, epicId, taskId);
-        return taskMapper.toTaskFullDto(addedToEpicTask);
+        return taskMapper.toDto(addedToEpicTask);
     }
 
     @DeleteMapping("/{epicId}/tasks/{taskId}/delete")
-    public TaskFullDto deleteTaskFromEpic(@RequestHeader("X-User-Id") @Positive Long userId,
-                                          @PathVariable @Positive Long epicId,
-                                          @PathVariable @Positive Long taskId) {
+    public TaskDto deleteTaskFromEpic(@RequestHeader("X-User-Id") @Positive Long userId,
+                                      @PathVariable @Positive Long epicId,
+                                      @PathVariable @Positive Long taskId) {
         log.debug("Deleting task with id '{}' from epic with id '{}' by user with id '{}'", taskId, epicId, userId);
         final Task deletedFromEpicTask = epicService.deleteTaskFromEpic(userId, epicId, taskId);
-        return taskMapper.toTaskFullDto(deletedFromEpicTask);
+        return taskMapper.toDto(deletedFromEpicTask);
     }
 
     @GetMapping("/{epicId}")

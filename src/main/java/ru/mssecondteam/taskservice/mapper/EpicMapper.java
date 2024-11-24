@@ -10,7 +10,7 @@ import ru.mssecondteam.taskservice.model.Epic;
 
 import static org.mapstruct.NullValuePropertyMappingStrategy.IGNORE;
 
-@Mapper(componentModel = "spring", uses = TaskMapper.class)
+@Mapper(componentModel = "spring")
 public interface EpicMapper {
     EpicResponseDto toEpicResponseDto(Epic epic);
 

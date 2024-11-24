@@ -11,7 +11,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import ru.mssecondteam.taskservice.dto.TaskFullDto;
+import ru.mssecondteam.taskservice.dto.TaskDto;
 import ru.mssecondteam.taskservice.dto.epic.dto.EpicResponseDto;
 import ru.mssecondteam.taskservice.dto.epic.dto.EpicUpdateRequest;
 import ru.mssecondteam.taskservice.dto.epic.dto.NewEpicRequest;
@@ -347,20 +347,23 @@ public class EpicControllerTest {
     @SneakyThrows
     @DisplayName("Add task to epic. Success")
     void addTaskToEpicShouldReturnStatus200() {
-        TaskFullDto taskFullDto = TaskFullDto.builder()
-                .epicId(epic.getId())
+        EpicResponseDto responseDto = EpicResponseDto.builder()
+                .id(epic.getId())
+                .build();
+        TaskDto taskFullDto = TaskDto.builder()
+                .epic(responseDto)
                 .build();
         when(epicService.addTaskToEpic(anyLong(), anyLong(), anyLong()))
                 .thenReturn(task);
-        when(taskMapper.toTaskFullDto(any()))
+        when(taskMapper.toDto(any()))
                 .thenReturn(taskFullDto);
 
         mvc.perform(patch("/epics/1/tasks/4")
                         .header("X-User-Id", 2))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.epicId", is(epic.getId()), Long.class));
+                .andExpect(jsonPath("$.epic.id", is(responseDto.id()), Long.class));
 
-        verify(taskMapper, times(1)).toTaskFullDto(any());
+        verify(taskMapper, times(1)).toDto(any());
         verify(epicService, times(1)).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -372,7 +375,7 @@ public class EpicControllerTest {
                         .header("X-User-Id", 2))
                 .andExpect(status().isBadRequest());
 
-        verify(taskMapper, never()).toTaskFullDto(any());
+        verify(taskMapper, never()).toDto(any());
         verify(epicService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -384,7 +387,7 @@ public class EpicControllerTest {
                         .header("X-User-Id", 2))
                 .andExpect(status().isBadRequest());
 
-        verify(taskMapper, never()).toTaskFullDto(any());
+        verify(taskMapper, never()).toDto(any());
         verify(epicService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -396,7 +399,7 @@ public class EpicControllerTest {
                         .header("X-User-Id", -2))
                 .andExpect(status().isBadRequest());
 
-        verify(taskMapper, never()).toTaskFullDto(any());
+        verify(taskMapper, never()).toDto(any());
         verify(epicService, never()).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -404,21 +407,21 @@ public class EpicControllerTest {
     @SneakyThrows
     @DisplayName("Delete task from epic. Success")
     void deleteTaskFromEpicShouldReturnStatus200() {
-        TaskFullDto taskFullDto = TaskFullDto.builder()
-                .epicId(null)
+        TaskDto taskFullDto = TaskDto.builder()
+                .epic(null)
                 .build();
 
         when(epicService.deleteTaskFromEpic(anyLong(), anyLong(), anyLong()))
                 .thenReturn(task);
-        when(taskMapper.toTaskFullDto(any()))
+        when(taskMapper.toDto(any()))
                 .thenReturn(taskFullDto);
 
         mvc.perform(delete("/epics/1/tasks/4/delete")
                         .header("X-User-Id", 2))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.epicId", is(nullValue())));
+                .andExpect(jsonPath("$.epic", is(nullValue())));
 
-        verify(taskMapper, times(1)).toTaskFullDto(any());
+        verify(taskMapper, times(1)).toDto(any());
         verify(epicService, times(1)).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -430,7 +433,7 @@ public class EpicControllerTest {
                         .header("X-User-Id", 2))
                 .andExpect(status().isBadRequest());
 
-        verify(taskMapper, never()).toTaskFullDto(any());
+        verify(taskMapper, never()).toDto(any());
         verify(epicService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -442,7 +445,7 @@ public class EpicControllerTest {
                         .header("X-User-Id", 2))
                 .andExpect(status().isBadRequest());
 
-        verify(taskMapper, never()).toTaskFullDto(any());
+        verify(taskMapper, never()).toDto(any());
         verify(epicService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -454,7 +457,7 @@ public class EpicControllerTest {
                         .header("X-User-Id", -2))
                 .andExpect(status().isBadRequest());
 
-        verify(taskMapper, never()).toTaskFullDto(any());
+        verify(taskMapper, never()).toDto(any());
         verify(epicService, never()).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 

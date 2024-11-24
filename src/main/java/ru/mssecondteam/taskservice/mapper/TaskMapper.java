@@ -5,7 +5,6 @@ import org.mapstruct.Mapper;
 import org.mapstruct.MappingTarget;
 import ru.mssecondteam.taskservice.dto.NewTaskRequest;
 import ru.mssecondteam.taskservice.dto.TaskDto;
-import ru.mssecondteam.taskservice.dto.TaskFullDto;
 import ru.mssecondteam.taskservice.dto.TaskUpdateRequest;
 import ru.mssecondteam.taskservice.model.Task;
 
@@ -13,7 +12,7 @@ import java.util.List;
 
 import static org.mapstruct.NullValuePropertyMappingStrategy.IGNORE;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = EpicMapper.class)
 public interface TaskMapper {
 
     TaskDto toDto(Task task);
@@ -24,6 +23,4 @@ public interface TaskMapper {
     void updateTask(TaskUpdateRequest updateRequest, @MappingTarget Task taskToUpdate);
 
     List<TaskDto> toDtoList(List<Task> tasks);
-
-    TaskFullDto toTaskFullDto(Task task);
 }
