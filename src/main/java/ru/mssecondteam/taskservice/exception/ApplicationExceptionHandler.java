@@ -39,7 +39,7 @@ public class ApplicationExceptionHandler {
         return errorResponse;
     }
 
-    @ExceptionHandler
+    @ExceptionHandler(NotAuthorizedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleNotAuthorizedException(NotAuthorizedException ex) {
         Map<String, String> error = Map.of("error", ex.getLocalizedMessage());
@@ -48,7 +48,7 @@ public class ApplicationExceptionHandler {
         return errorResponse;
     }
 
-    @ExceptionHandler
+    @ExceptionHandler(OperationNotAllowedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleOperationNotAllowedException(OperationNotAllowedException ex) {
         Map<String, String> error = Map.of("error", ex.getLocalizedMessage());

@@ -7,7 +7,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicUpdateRequest;
+import ru.mssecondteam.taskservice.dto.epic.EpicUpdateRequest;
 import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
 import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.exception.OperationNotAllowedException;

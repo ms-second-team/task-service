@@ -1,4 +1,4 @@
-package ru.mssecondteam.taskservice.dto.epic.dto;
+package ru.mssecondteam.taskservice.dto.epic;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Builder;

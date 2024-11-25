@@ -2,6 +2,7 @@ package ru.mssecondteam.taskservice.mapper;
 
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import ru.mssecondteam.taskservice.dto.NewTaskRequest;
 import ru.mssecondteam.taskservice.dto.TaskDto;
@@ -12,9 +13,10 @@ import java.util.List;
 
 import static org.mapstruct.NullValuePropertyMappingStrategy.IGNORE;
 
-@Mapper(componentModel = "spring", uses = EpicMapper.class)
+@Mapper(componentModel = "spring")
 public interface TaskMapper {
 
+    @Mapping(target = "epicId", expression = "java(task.getEpic() == null ? null : task.getEpic().getId())")
     TaskDto toDto(Task task);
 
     Task toModel(NewTaskRequest newTask);

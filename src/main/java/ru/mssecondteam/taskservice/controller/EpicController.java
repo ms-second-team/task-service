@@ -7,14 +7,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.mssecondteam.taskservice.dto.TaskDto;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicResponseDto;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicUpdateRequest;
-import ru.mssecondteam.taskservice.dto.epic.dto.NewEpicRequest;
+import ru.mssecondteam.taskservice.dto.epic.EpicResponseDto;
+import ru.mssecondteam.taskservice.dto.epic.EpicUpdateRequest;
+import ru.mssecondteam.taskservice.dto.epic.NewEpicRequest;
 import ru.mssecondteam.taskservice.mapper.EpicMapper;
 import ru.mssecondteam.taskservice.mapper.TaskMapper;
 import ru.mssecondteam.taskservice.model.Epic;
-import ru.mssecondteam.taskservice.model.Task;
 import ru.mssecondteam.taskservice.service.EpicService;
 
 @RestController

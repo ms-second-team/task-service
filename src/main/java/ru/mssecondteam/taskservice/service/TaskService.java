@@ -2,8 +2,6 @@ package ru.mssecondteam.taskservice.service;
 
 import ru.mssecondteam.taskservice.dto.TaskSearchFilter;
 import ru.mssecondteam.taskservice.dto.TaskUpdateRequest;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicUpdateRequest;
-import ru.mssecondteam.taskservice.model.Epic;
 import ru.mssecondteam.taskservice.model.Task;
 
 import java.util.List;

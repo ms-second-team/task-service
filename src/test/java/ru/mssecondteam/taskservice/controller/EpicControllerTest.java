@@ -11,14 +11,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import ru.mssecondteam.taskservice.dto.TaskDto;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicResponseDto;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicUpdateRequest;
-import ru.mssecondteam.taskservice.dto.epic.dto.NewEpicRequest;
+import ru.mssecondteam.taskservice.dto.epic.EpicResponseDto;
+import ru.mssecondteam.taskservice.dto.epic.EpicUpdateRequest;
+import ru.mssecondteam.taskservice.dto.epic.NewEpicRequest;
 import ru.mssecondteam.taskservice.mapper.EpicMapper;
 import ru.mssecondteam.taskservice.mapper.TaskMapper;
 import ru.mssecondteam.taskservice.model.Epic;
-import ru.mssecondteam.taskservice.model.Task;
 import ru.mssecondteam.taskservice.service.impl.EpicServiceImpl;
 
 import java.nio.charset.StandardCharsets;
@@ -26,8 +24,14 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 
 import static java.time.format.DateTimeFormatter.ofPattern;
-import static org.hamcrest.Matchers.*;
-import static org.mockito.Mockito.*;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -54,7 +58,6 @@ public class EpicControllerTest {
     private String dateTimeFormat;
 
     private Epic epic;
-    private Task task;
 
     @BeforeEach
     void setup() {
@@ -350,13 +353,11 @@ public class EpicControllerTest {
         EpicResponseDto responseDto = EpicResponseDto.builder()
                 .id(epic.getId())
                 .build();
-        TaskDto taskFullDto = TaskDto.builder()
-                .epic(responseDto)
-                .build();
+
         when(epicService.addTaskToEpic(anyLong(), anyLong(), anyLong()))
                 .thenReturn(epic);
-        when(taskMapper.toDto(any()))
-                .thenReturn(taskFullDto);
+        when(epicMapper.toEpicResponseDto(any()))
+                .thenReturn(responseDto);
 
         mvc.perform(patch("/epics/1/tasks/4")
                         .header("X-User-Id", 2))
@@ -405,10 +406,6 @@ public class EpicControllerTest {
     @SneakyThrows
     @DisplayName("Delete task from epic. Success")
     void deleteTaskFromEpicShouldReturnStatus200() {
-        TaskDto taskDto = TaskDto.builder()
-                .epic(null)
-                .build();
-
         when(epicService.deleteTaskFromEpic(anyLong(), anyLong(), anyLong()))
                 .thenReturn(epic);
 

@@ -3,7 +3,7 @@ package ru.mssecondteam.taskservice.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.mssecondteam.taskservice.dto.epic.dto.EpicUpdateRequest;
+import ru.mssecondteam.taskservice.dto.epic.EpicUpdateRequest;
 import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
 import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.exception.OperationNotAllowedException;
