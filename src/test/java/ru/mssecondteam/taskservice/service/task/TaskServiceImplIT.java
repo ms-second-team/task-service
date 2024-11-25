@@ -1,4 +1,4 @@
-package ru.mssecondteam.taskservice.service;
+package ru.mssecondteam.taskservice.service.task;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -17,6 +17,7 @@ import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
 import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.model.Task;
 import ru.mssecondteam.taskservice.model.TaskStatus;
+import ru.mssecondteam.taskservice.service.TaskService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -83,7 +84,7 @@ class TaskServiceImplIT {
         TaskUpdateRequest updateRequest = TaskUpdateRequest.builder()
                 .title("new title")
                 .description("new description")
-                .deadline(LocalDateTime.of(2040, 11, 11, 11,11,11))
+                .deadline(LocalDateTime.of(2040, 11, 11, 11, 11, 11))
                 .eventId(54L)
                 .status(TaskStatus.DONE)
                 .build();

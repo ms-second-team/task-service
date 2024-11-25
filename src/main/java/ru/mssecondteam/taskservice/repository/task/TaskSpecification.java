@@ -1,4 +1,4 @@
-package ru.mssecondteam.taskservice.repository;
+package ru.mssecondteam.taskservice.repository.task;
 
 import lombok.experimental.UtilityClass;
 import org.springframework.data.jpa.domain.Specification;

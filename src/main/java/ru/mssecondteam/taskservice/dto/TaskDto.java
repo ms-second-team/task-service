@@ -18,6 +18,7 @@ public record TaskDto(
         TaskStatus status,
         Long assigneeId,
         Long authorId,
-        Long eventId
+        Long eventId,
+        Long epicId
 ) {
 }

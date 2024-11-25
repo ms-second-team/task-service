@@ -1,4 +1,4 @@
-package ru.mssecondteam.taskservice.service;
+package ru.mssecondteam.taskservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,8 +12,9 @@ import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
 import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.mapper.TaskMapper;
 import ru.mssecondteam.taskservice.model.Task;
-import ru.mssecondteam.taskservice.repository.TaskRepository;
-import ru.mssecondteam.taskservice.repository.TaskSpecification;
+import ru.mssecondteam.taskservice.repository.task.TaskRepository;
+import ru.mssecondteam.taskservice.repository.task.TaskSpecification;
+import ru.mssecondteam.taskservice.service.TaskService;
 
 import java.util.ArrayList;
 import java.util.List;

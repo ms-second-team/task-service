@@ -7,3 +7,19 @@ databaseChangeLog:
             dbms: postgresql
             path: migrations/v1_create_tasks.sql
             relativeToChangelogFile: true
+  - changeSet:
+      id: 2
+      author: kpetrosyan
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: migrations/v2_create_epics.sql
+            relativeToChangelogFile: true
+  - changeSet:
+      id: 3
+      author: kpetrosyan
+      changes:
+        - sqlFile:
+            dbms: postgresql
+            path: migrations/v3_alter_tasks_add_epic_id.sql
+            relativeToChangelogFile: true
