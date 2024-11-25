@@ -363,6 +363,7 @@ public class EpicControllerTest {
                         .header("X-User-Id", 2))
                 .andExpect(status().isOk());
 
+        verify(epicMapper, times(1)).toEpicResponseDto(any());
         verify(epicService, times(1)).addTaskToEpic(anyLong(), anyLong(), anyLong());
     }
 
@@ -406,13 +407,20 @@ public class EpicControllerTest {
     @SneakyThrows
     @DisplayName("Delete task from epic. Success")
     void deleteTaskFromEpicShouldReturnStatus200() {
+        EpicResponseDto responseDto = EpicResponseDto.builder()
+                .id(epic.getId())
+                .build();
+
         when(epicService.deleteTaskFromEpic(anyLong(), anyLong(), anyLong()))
                 .thenReturn(epic);
+        when(epicMapper.toEpicResponseDto(any()))
+                .thenReturn(responseDto);
 
         mvc.perform(delete("/epics/1/tasks/4/delete")
                         .header("X-User-Id", 2))
                 .andExpect(status().isOk());
 
+        verify(epicMapper, times(1)).toEpicResponseDto(any());
         verify(epicService, times(1)).deleteTaskFromEpic(anyLong(), anyLong(), anyLong());
     }
 
