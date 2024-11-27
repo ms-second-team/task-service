@@ -1,0 +1,21 @@
+name: Deploy on server via docker
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update docker container
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.DEPLOY_USERNAME }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: 22
+          script: |
+            cd ~/home/java-team2/deploy
+            ./service-update.sh ${{ vars.DOCKER_CONTAINER_NAME }}
