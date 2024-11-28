@@ -61,9 +61,9 @@ public class EpicServiceImpl implements EpicService {
         final Task task = getTaskById(taskId);
         checkIfTaskBelongsToEpic(task, epic);
         epic.removeTask(task);
-        Epic EpicWithDeletedTask = epicRepository.save(epic);
+        final Epic epicWithDeletedTask = epicRepository.save(epic);
         log.info("Task with id '{}' was deleted from Epic with id '{}'", task.getId(), epicId);
-        return EpicWithDeletedTask;
+        return epicWithDeletedTask;
     }
 
     @Override
