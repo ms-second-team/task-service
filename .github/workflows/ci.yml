@@ -39,4 +39,3 @@ jobs:
         title: '#Coverage Report'
         update-comment: true
         continue-on-error: false
-  
