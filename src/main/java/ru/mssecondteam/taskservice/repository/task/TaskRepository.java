@@ -1,4 +1,4 @@
-package ru.mssecondteam.taskservice.repository;
+package ru.mssecondteam.taskservice.repository.task;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;

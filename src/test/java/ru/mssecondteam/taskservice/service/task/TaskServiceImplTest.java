@@ -1,4 +1,4 @@
-package ru.mssecondteam.taskservice.service;
+package ru.mssecondteam.taskservice.service.task;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,7 +13,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import ru.mssecondteam.taskservice.dto.TaskDto;
 import ru.mssecondteam.taskservice.dto.TaskSearchFilter;
 import ru.mssecondteam.taskservice.dto.TaskUpdateRequest;
 import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
@@ -21,15 +20,15 @@ import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.mapper.TaskMapper;
 import ru.mssecondteam.taskservice.model.Task;
 import ru.mssecondteam.taskservice.model.TaskStatus;
-import ru.mssecondteam.taskservice.repository.TaskRepository;
+import ru.mssecondteam.taskservice.repository.task.TaskRepository;
+import ru.mssecondteam.taskservice.service.impl.TaskServiceImpl;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
