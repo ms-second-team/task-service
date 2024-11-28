@@ -14,7 +14,7 @@ jobs:
     - name: Checkstyle
       uses: dbelyaev/action-checkstyle@master
       with:
-        reporter: github-pr-review
+        reporter: github-pr-check
         github_token: ${{ secrets.GITHUB_TOKEN }}
         level: warning
         fail_level: error
