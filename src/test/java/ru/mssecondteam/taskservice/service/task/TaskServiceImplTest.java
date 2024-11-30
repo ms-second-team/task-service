@@ -21,6 +21,7 @@ import ru.mssecondteam.taskservice.mapper.TaskMapper;
 import ru.mssecondteam.taskservice.model.Task;
 import ru.mssecondteam.taskservice.model.TaskStatus;
 import ru.mssecondteam.taskservice.repository.task.TaskRepository;
+import ru.mssecondteam.taskservice.service.EventServiceHelper;
 import ru.mssecondteam.taskservice.service.impl.TaskServiceImpl;
 
 import java.time.LocalDateTime;
@@ -44,6 +45,9 @@ class TaskServiceImplTest {
 
     @Mock
     private TaskMapper taskMapper;
+
+    @Mock
+    private EventServiceHelper eventServiceHelper;
 
     @InjectMocks
     private TaskServiceImpl taskService;

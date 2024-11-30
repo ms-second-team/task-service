@@ -1,5 +1,9 @@
 package ru.mssecondteam.taskservice.service.epic;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.SneakyThrows;
+import org.apache.http.entity.ContentType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,11 +11,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import ru.mssecondteam.taskservice.dto.epic.EpicUpdateRequest;
+import ru.mssecondteam.taskservice.dto.event.EventDto;
+import ru.mssecondteam.taskservice.dto.event.TeamMemberDto;
+import ru.mssecondteam.taskservice.dto.event.TeamMemberRole;
 import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
 import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.exception.OperationNotAllowedException;
@@ -22,7 +31,12 @@ import ru.mssecondteam.taskservice.service.EpicService;
 import ru.mssecondteam.taskservice.service.TaskService;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -32,6 +46,10 @@ import static org.junit.Assert.assertThrows;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Transactional
+@AutoConfigureWireMock(port = 0)
+@TestPropertySource(properties = {
+        "event-service.url=localhost:${wiremock.server.port}"
+})
 public class EpicServiceIntegrationTest {
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
@@ -40,6 +58,8 @@ public class EpicServiceIntegrationTest {
 
     @Autowired
     private TaskService taskService;
+
+    private ObjectMapper objectMapper;
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
@@ -66,6 +86,8 @@ public class EpicServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule());
         task = createNewTask(1);
         userId = 4L;
         epic = createNewEpic();
@@ -73,8 +95,28 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Create Epic, success")
+    @SneakyThrows
     void createEpicSuccessfully() {
-        Epic createdEpic = epicService.createEpic(epic);
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic createdEpic = epicService.createEpic(userId, epic);
 
         assertThat(createdEpic, notNullValue());
         assertThat(createdEpic.getId(), greaterThan(0L));
@@ -85,13 +127,52 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Update epic assigneeId. Executive must change")
+    @SneakyThrows
     void updateEpicAssigneeIdSuccess() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToUpdate = epicService.createEpic(userId, epic);
+
         EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
                 .executiveId(3L)
                 .build();
 
-        Epic epicToUpdate = epicService.createEpic(epic);
-        Epic updatedEpic = epicService.updateEpic(epicToUpdate.getId(), updateRequest);
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(3L)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto, teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic updatedEpic = epicService.updateEpic(userId, epicToUpdate.getId(), updateRequest);
 
         assertThat(updatedEpic, notNullValue());
         assertThat(updatedEpic.getId(), is(epicToUpdate.getId()));
@@ -103,13 +184,47 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Update epic title. Title must change")
+    @SneakyThrows
     void updateEpicTitleSuccess() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToUpdate = epicService.createEpic(userId, epic);
+
         EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
                 .title("epic 2")
                 .build();
 
-        Epic epicToUpdate = epicService.createEpic(epic);
-        Epic updatedEpic = epicService.updateEpic(epicToUpdate.getId(), updateRequest);
+        stubFor(get(urlEqualTo("/events/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+
+        Epic updatedEpic = epicService.updateEpic(userId, epicToUpdate.getId(), updateRequest);
 
         assertThat(updatedEpic, notNullValue());
         assertThat(updatedEpic.getId(), is(epicToUpdate.getId()));
@@ -121,13 +236,46 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Update epic deadline. Deadline must change")
+    @SneakyThrows
     void updateEpicDeadlineSuccess() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToUpdate = epicService.createEpic(userId, epic);
+
         EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
                 .deadline(LocalDateTime.now().plusMonths(1))
                 .build();
 
-        Epic epicToUpdate = epicService.createEpic(epic);
-        Epic updatedEpic = epicService.updateEpic(epicToUpdate.getId(), updateRequest);
+        stubFor(get(urlEqualTo("/events/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic updatedEpic = epicService.updateEpic(userId, epicToUpdate.getId(), updateRequest);
 
         assertThat(updatedEpic, notNullValue());
         assertThat(updatedEpic.getId(), is(epicToUpdate.getId()));
@@ -139,22 +287,83 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Update epic, when epic not found")
+    @SneakyThrows
     void updateEpicWhenNotFoundShouldThrowNotFoundException() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToUpdate = epicService.createEpic(userId, epic);
+
         EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
                 .title("epic 2").build();
-        Epic epicToUpdate = epicService.createEpic(epic);
 
         NotFoundException ex = assertThrows(NotFoundException.class,
-                () -> epicService.updateEpic(epicToUpdate.getId() + 1, updateRequest));
+                () -> epicService.updateEpic(userId, epicToUpdate.getId() + 1, updateRequest));
 
         assertThat(ex.getMessage(), is(String.format("Epic with id '%s' was not found", epicToUpdate.getId() + 1)));
     }
 
     @Test
     @DisplayName("Add task to epic. Success")
+    @SneakyThrows
     void addTaskToEpicSuccess() {
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task taskToAdd = taskService.createTask(userId, task);
-        Epic epicToAdd = epicService.createEpic(epic);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic epicToAdd = epicService.createEpic(userId, epic);
 
         assertThat(taskToAdd.getEpic(), is(nullValue()));
 
@@ -176,9 +385,49 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Add task to epic when task already belongs to epic")
+    @SneakyThrows
     void addTaskToEpicWhenTaskAlreadyBelongsToEpicMustThrowNotAuthorizedException() {
-        Epic epicToAdd = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task taskToAdd = taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic epicToAdd = epicService.createEpic(userId, epic);
 
 
         epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), taskToAdd.getId());
@@ -194,8 +443,28 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Add task to epic when epic not found")
+    @SneakyThrows
     void addTaskToEpicWhenEpicNotFoundMustThrowNotFoundException() {
-        Epic epicToAdd = epicService.createEpic(epic);
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToAdd = epicService.createEpic(userId, epic);
 
         NotFoundException ex = assertThrows(NotFoundException.class,
                 () -> epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId() + 1, 10L));
@@ -205,9 +474,49 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Add task to epic when task not found")
+    @SneakyThrows
     void addTaskToEpicWhenTaskNotFoundMustThrowNotFoundException() {
-        Epic epicToAdd = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task taskToAdd = taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic epicToAdd = epicService.createEpic(userId, epic);
 
         NotFoundException ex = assertThrows(NotFoundException.class,
                 () -> epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), taskToAdd.getId() + 1));
@@ -217,9 +526,49 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Add task to epic when user is not epic executive")
+    @SneakyThrows
     void addTaskToEpicWhenUserIsNotAuthorizedMustThrowNotAuthorizedException() {
-        Epic epicToAdd = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task taskToAdd = taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic epicToAdd = epicService.createEpic(userId, epic);
 
         NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
                 () -> epicService.addTaskToEpic(epicToAdd.getExecutiveId() + 1, epicToAdd.getId(), taskToAdd.getId()));
@@ -231,10 +580,51 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Add task to epic when epic and task have different eventId")
+    @SneakyThrows
     void addTaskToEpicWhenEventIdDifferentMustThrowOperationNotAllowedException() {
-        epic.setEventId(epic.getEventId() + 1);
-        Epic epicToAdd = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task taskToAdd = taskService.createTask(userId, task);
+
+        epic.setEventId(epic.getEventId() + 1);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic epicToAdd = epicService.createEpic(userId, epic);
 
         OperationNotAllowedException ex = assertThrows(OperationNotAllowedException.class,
                 () -> epicService.addTaskToEpic(epicToAdd.getExecutiveId(), epicToAdd.getId(), taskToAdd.getId()));
@@ -245,9 +635,49 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Delete task from epic. Success")
+    @SneakyThrows
     void deleteTaskFromEpicTest() {
-        Epic createdEpic = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task createdTask = taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic createdEpic = epicService.createEpic(userId, epic);
 
         assertThat(createdTask.getEpic(), is(nullValue()));
 
@@ -274,8 +704,28 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Delete task from epic when epic not found")
+    @SneakyThrows
     void deleteTaskFromEpicWhenEpicNotFoundMustThrowNotFoundException() {
-        Epic epicToDeleteFrom = epicService.createEpic(epic);
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToDeleteFrom = epicService.createEpic(userId, epic);
 
         NotFoundException ex = assertThrows(NotFoundException.class,
                 () -> epicService.deleteTaskFromEpic(epicToDeleteFrom.getExecutiveId(),
@@ -286,9 +736,49 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Delete task from epic when task not found")
+    @SneakyThrows
     void deleteTaskFromEpicWhenTaskNotFoundMustThrowNotFoundException() {
-        Epic epicToDeleteFrom = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task taskToDelete = taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic epicToDeleteFrom = epicService.createEpic(userId, epic);
 
         NotFoundException ex = assertThrows(NotFoundException.class,
                 () -> epicService.deleteTaskFromEpic(epicToDeleteFrom.getExecutiveId(), epicToDeleteFrom.getId(),
@@ -299,9 +789,49 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Delete task from epic when user is not authorized")
+    @SneakyThrows
     void deleteTaskFromEpicWhenUserIsNotAuthorizedMustThrowNotAuthorizedException() {
-        Epic epicToDeleteFrom = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task taskToDelete = taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic epicToDeleteFrom = epicService.createEpic(userId, epic);
 
         NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
                 () -> epicService.addTaskToEpic(epicToDeleteFrom.getExecutiveId() + 1, epicToDeleteFrom.getId(),
@@ -313,8 +843,28 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Find epic by id with tasks, when tasks are empty")
+    @SneakyThrows
     void findEpicByIdWithEmptyTasks() {
-        Epic createdEpic = epicService.createEpic(epic);
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic createdEpic = epicService.createEpic(userId, epic);
 
         Epic retrievedEpic = epicService.findEpicById(createdEpic.getId());
 
@@ -328,9 +878,50 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Find epic by id with tasks, when epic has 1 task")
+    @SneakyThrows
     void findEpicByIdWithOneTask() {
-        Epic createdEpic = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task createdTask = taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic createdEpic = epicService.createEpic(userId, epic);
+
         epicService.addTaskToEpic(createdEpic.getExecutiveId(), createdEpic.getId(), createdTask.getId());
         Epic retrievedEpic = epicService.findEpicById(createdEpic.getId());
 
@@ -345,10 +936,71 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Find epic by id with tasks, when epic has 2 tasks")
+    @SneakyThrows
     void findEpicByIdWithTwoTasks() {
-        Epic createdEpic = epicService.createEpic(epic);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task createdTask = taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+        Epic createdEpic = epicService.createEpic(userId, epic);
+
         Task task2 = createNewTask(2);
+
+        EventDto event3 = createEvent(task2.getAssigneeId());
+        TeamMemberDto teamMemberDto3 = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event3))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto3)))
+                        .withStatus(200)));
+
         Task createdTask2 = taskService.createTask(userId, task2);
         epicService.addTaskToEpic(createdEpic.getExecutiveId(), createdEpic.getId(), createdTask.getId());
         epicService.addTaskToEpic(createdEpic.getExecutiveId(), createdEpic.getId(), createdTask2.getId());
@@ -365,8 +1017,28 @@ public class EpicServiceIntegrationTest {
 
     @Test
     @DisplayName("Find epic when epic not found")
+    @SneakyThrows
     void findEpicNotExistMustThrowNotFoundException() {
-        Epic createdEpic = epicService.createEpic(epic);
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic createdEpic = epicService.createEpic(userId, epic);
 
         NotFoundException ex = assertThrows(NotFoundException.class,
                 () -> epicService.findEpicById(createdEpic.getId() + 1));
@@ -393,4 +1065,16 @@ public class EpicServiceIntegrationTest {
                 .eventId(5L)
                 .build();
     }
+
+    private EventDto createEvent(long id) {
+        return EventDto.builder()
+                .id(1L)
+                .name("event name " + id)
+                .description("event description " + id)
+                .ownerId(id)
+                .startDateTime(LocalDateTime.now().plusDays(id))
+                .endDateTime(LocalDateTime.now().plusMonths(id))
+                .build();
+    }
 }
+
