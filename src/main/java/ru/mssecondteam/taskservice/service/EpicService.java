@@ -4,9 +4,9 @@ import ru.mssecondteam.taskservice.dto.epic.EpicUpdateRequest;
 import ru.mssecondteam.taskservice.model.Epic;
 
 public interface EpicService {
-    Epic createEpic(Epic epic);
+    Epic createEpic(Long userId, Epic epic);
 
-    Epic updateEpic(Long epicId, EpicUpdateRequest updateRequest);
+    Epic updateEpic(Long userId, Long epicId, EpicUpdateRequest updateRequest);
 
     Epic addTaskToEpic(Long userId, Long epicId, Long taskId);
 

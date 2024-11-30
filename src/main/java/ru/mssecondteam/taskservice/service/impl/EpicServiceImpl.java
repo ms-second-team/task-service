@@ -13,6 +13,7 @@ import ru.mssecondteam.taskservice.model.Task;
 import ru.mssecondteam.taskservice.repository.epic.EpicRepository;
 import ru.mssecondteam.taskservice.repository.task.TaskRepository;
 import ru.mssecondteam.taskservice.service.EpicService;
+import ru.mssecondteam.taskservice.service.EventServiceHelper;
 
 @Service
 @RequiredArgsConstructor
@@ -25,17 +26,21 @@ public class EpicServiceImpl implements EpicService {
 
     private final TaskRepository taskRepository;
 
+    private final EventServiceHelper eventServiceHelper;
+
     @Override
-    public Epic createEpic(Epic epic) {
+    public Epic createEpic(Long userId, Epic epic) {
+        eventServiceHelper.checkIfEventExistsAndUsersAreEventTeamMembers(userId, epic.getEventId(), epic.getExecutiveId());
         Epic createdEpic = epicRepository.save(epic);
         log.info("Epic with id '{}' was created", createdEpic.getId());
         return createdEpic;
     }
 
     @Override
-    public Epic updateEpic(Long epicId, EpicUpdateRequest updateRequest) {
+    public Epic updateEpic(Long userId, Long epicId, EpicUpdateRequest updateRequest) {
         final Epic epic = getEpicById(epicId);
         epicMapper.updateEpic(updateRequest, epic);
+        eventServiceHelper.checkIfEventExistsAndUsersAreEventTeamMembers(userId, epic.getEventId(), epic.getExecutiveId());
         Epic updatedEpic = epicRepository.save(epic);
         log.info("Epic with id '{}' was updated", updatedEpic.getId());
         return updatedEpic;
