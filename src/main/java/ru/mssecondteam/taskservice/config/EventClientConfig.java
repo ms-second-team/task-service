@@ -16,6 +16,6 @@ public class EventClientConfig {
 
     @Bean
     Logger.Level feignLoggerLevel() {
-        return Logger.Level.FULL;
+        return Logger.Level.BASIC;
     }
 }
