@@ -126,6 +126,94 @@ public class EpicServiceIntegrationTest {
     }
 
     @Test
+    @DisplayName("Create epic, executive is not a team member")
+    @SneakyThrows
+    void createEpic_whenExecutiveNotATeamMember_shouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(userId);
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
+                () -> epicService.createEpic(userId, epic));
+
+        assertThat(ex.getMessage(), is(String.format("User is with id '%s' not a team member for event with id '%s'",
+                epic.getExecutiveId(), epic.getEventId())));
+    }
+
+    @Test
+    @DisplayName("Create epic, user is not a team member")
+    @SneakyThrows
+    void createEpic_whenUserNotATeamMember_shouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(epic.getExecutiveId())
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
+                () -> epicService.createEpic(userId, epic));
+
+        assertThat(ex.getMessage(), is(String.format("User is with id '%s' not a team member for event with id '%s'",
+                userId, epic.getEventId())));
+    }
+
+    @Test
+    @DisplayName("Create epic, user is not a team member")
+    @SneakyThrows
+    void createEpic_whenEventNotFound_shouldThrowNotFoundException() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(epic.getExecutiveId())
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withStatus(404)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        NotFoundException ex = assertThrows(NotFoundException.class,
+                () -> epicService.createEpic(userId, epic));
+
+        assertThat(ex.getMessage(), is("Event was not found"));
+    }
+
+    @Test
     @DisplayName("Update epic assigneeId. Executive must change")
     @SneakyThrows
     void updateEpicAssigneeIdSuccess() {
@@ -181,6 +269,170 @@ public class EpicServiceIntegrationTest {
         assertThat(updatedEpic.getDeadline(), is(epicToUpdate.getDeadline()));
         assertThat(updatedEpic.getEventId(), is(epicToUpdate.getEventId()));
     }
+
+    @Test
+    @DisplayName("Update epic, executive is not a team member")
+    @SneakyThrows
+    void updateEpic_whenExecutiveIsNotATeamMember_shouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToUpdate = epicService.createEpic(userId, epic);
+
+        EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
+                .executiveId(3L)
+                .build();
+
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto, teamMemberDto2)))
+                        .withStatus(200)));
+
+
+        NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
+                () -> epicService.updateEpic(userId, epicToUpdate.getId(), updateRequest));
+
+        assertThat(ex.getMessage(), is(String.format("User is with id '%s' not a team member for event with id '%s'",
+                epic.getExecutiveId(), epic.getEventId())));
+    }
+
+    @Test
+    @DisplayName("Update epic, user is not a team member")
+    @SneakyThrows
+    void updateEpic_whenUserIsNotATeamMember_shouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToUpdate = epicService.createEpic(userId, epic);
+
+        EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
+                .executiveId(3L)
+                .build();
+
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(3L)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+
+        NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
+                () -> epicService.updateEpic(userId, epicToUpdate.getId(), updateRequest));
+
+        assertThat(ex.getMessage(), is(String.format("User is with id '%s' not a team member for event with id '%s'",
+                userId, epic.getEventId())));
+    }
+
+    @Test
+    @DisplayName("Update epic, event not found")
+    @SneakyThrows
+    void updateEpic_whenEventNotFound_shouldThrowNotFoundException() {
+        EventDto event = createEvent(epic.getExecutiveId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epic.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Epic epicToUpdate = epicService.createEpic(userId, epic);
+
+        EpicUpdateRequest updateRequest = EpicUpdateRequest.builder()
+                .executiveId(3L)
+                .build();
+
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(3L)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withStatus(404)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + epicToUpdate.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+
+        NotFoundException ex = assertThrows(NotFoundException.class,
+                () -> epicService.updateEpic(userId, epicToUpdate.getId(), updateRequest));
+
+        assertThat(ex.getMessage(), is("Event was not found"));
+    }
+
 
     @Test
     @DisplayName("Update epic title. Title must change")
