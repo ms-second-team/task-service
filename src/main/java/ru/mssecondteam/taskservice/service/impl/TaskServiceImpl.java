@@ -6,19 +6,24 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import ru.mssecondteam.taskservice.client.EventClient;
 import ru.mssecondteam.taskservice.dto.TaskSearchFilter;
 import ru.mssecondteam.taskservice.dto.TaskUpdateRequest;
+import ru.mssecondteam.taskservice.dto.event.EventDto;
+import ru.mssecondteam.taskservice.dto.event.TeamMemberDto;
 import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
 import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.mapper.TaskMapper;
 import ru.mssecondteam.taskservice.model.Task;
 import ru.mssecondteam.taskservice.repository.task.TaskRepository;
 import ru.mssecondteam.taskservice.repository.task.TaskSpecification;
+import ru.mssecondteam.taskservice.service.EventServiceHelper;
 import ru.mssecondteam.taskservice.service.TaskService;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,8 +34,11 @@ public class TaskServiceImpl implements TaskService {
 
     private final TaskMapper taskMapper;
 
+    private final EventServiceHelper eventServiceHelper;
+
     @Override
     public Task createTask(Long userId, Task task) {
+        eventServiceHelper.checkIfEventExistsAndUsersAreEventTeamMembers(userId, task.getEventId(), task.getAssigneeId());
         task.setAuthorId(userId);
         Task createdTask = taskRepository.save(task);
         log.info("Task with '{}' was created", createdTask.getId());
@@ -42,6 +50,7 @@ public class TaskServiceImpl implements TaskService {
         final Task task = getTaskById(taskId);
         checkIfUserCanModifyTask(taskId, userId, task);
         taskMapper.updateTask(updateRequest, task);
+        eventServiceHelper.checkIfEventExistsAndUsersAreEventTeamMembers(userId, task.getEventId(), task.getAssigneeId());
         Task updatedTask = taskRepository.save(task);
         log.info("Task with id '{}' was updated", updatedTask.getId());
         return updatedTask;
@@ -67,6 +76,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public void deleteTaskById(Long taskId, Long userId) {
         final Task task = getTaskById(taskId);
+        eventServiceHelper.checkIfEventExistsAndUsersAreEventTeamMembers(userId, task.getEventId(), task.getAssigneeId());
         checkIfUserCanDeleteTask(taskId, userId, task);
         taskRepository.deleteById(taskId);
         log.info("Task with id '{}' was deleted", taskId);

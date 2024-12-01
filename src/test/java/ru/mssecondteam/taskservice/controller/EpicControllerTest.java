@@ -62,6 +62,8 @@ public class EpicControllerTest {
 
     private Epic epic;
 
+    private Long userId;
+
     @BeforeEach
     void setup() {
         epic = Epic.builder()
@@ -70,6 +72,7 @@ public class EpicControllerTest {
                 .eventId(1L)
                 .executiveId(1L)
                 .build();
+        userId = 1L;
     }
 
     @Test
@@ -82,12 +85,13 @@ public class EpicControllerTest {
 
         when(epicMapper.toEpicModel(any()))
                 .thenReturn(epic);
-        when(epicService.createEpic(any()))
+        when(epicService.createEpic(any(), any()))
                 .thenReturn(epic);
         when(epicMapper.toEpicResponseDto(any()))
                 .thenReturn(epicResponseDto);
 
         mvc.perform(post("/epics")
+                        .header("X-User-Id", userId)
                         .content(mapper.writeValueAsString(epicRequest))
                         .characterEncoding(StandardCharsets.UTF_8)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -99,7 +103,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
                 .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
-        verify(epicService, times(1)).createEpic(any());
+        verify(epicService, times(1)).createEpic(any(), any());
         verify(epicMapper, times(1)).toEpicModel(any());
         verify(epicMapper, times(1)).toEpicResponseDto(any());
     }
@@ -117,7 +121,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(epicService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any(), any());
     }
 
     @Test
@@ -133,7 +137,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(epicService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any(), any());
     }
 
     @Test
@@ -149,7 +153,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(epicService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any(), any());
     }
 
     @Test
@@ -165,7 +169,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(epicService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any(), any());
     }
 
     @Test
@@ -181,7 +185,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicModel(any());
-        verify(epicService, never()).createEpic(any());
+        verify(epicService, never()).createEpic(any(), any());
     }
 
     @Test
@@ -194,12 +198,13 @@ public class EpicControllerTest {
         EpicResponseDto epicResponseDto = createShortDto(updateRequest.title(), 2L,
                 3L, LocalDateTime.now().plusYears(1));
 
-        when(epicService.updateEpic(anyLong(), any()))
+        when(epicService.updateEpic(anyLong(), anyLong(), any()))
                 .thenReturn(epic);
         when(epicMapper.toEpicResponseDto(any()))
                 .thenReturn(epicResponseDto);
 
         mvc.perform(patch("/epics/1")
+                        .header("X-User-Id", userId)
                         .content(mapper.writeValueAsString(updateRequest))
                         .characterEncoding(StandardCharsets.UTF_8)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -211,7 +216,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
                 .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
-        verify(epicService, times(1)).updateEpic(anyLong(), any());
+        verify(epicService, times(1)).updateEpic(anyLong(), anyLong(), any());
         verify(epicMapper, times(1)).toEpicResponseDto(any());
     }
 
@@ -225,12 +230,13 @@ public class EpicControllerTest {
         EpicResponseDto epicResponseDto = createShortDto(updateRequest.title(), 2L,
                 updateRequest.executiveId(), LocalDateTime.now().plusYears(1));
 
-        when(epicService.updateEpic(anyLong(), any()))
+        when(epicService.updateEpic(anyLong(), anyLong(), any()))
                 .thenReturn(epic);
         when(epicMapper.toEpicResponseDto(any()))
                 .thenReturn(epicResponseDto);
 
         mvc.perform(patch("/epics/1")
+                        .header("X-User-Id", userId)
                         .content(mapper.writeValueAsString(updateRequest))
                         .characterEncoding(StandardCharsets.UTF_8)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -242,7 +248,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
                 .andExpect(jsonPath("$.executiveId", is(updateRequest.executiveId()), Long.class));
 
-        verify(epicService, times(1)).updateEpic(anyLong(), any());
+        verify(epicService, times(1)).updateEpic(anyLong(), anyLong(), any());
         verify(epicMapper, times(1)).toEpicResponseDto(any());
     }
 
@@ -256,12 +262,13 @@ public class EpicControllerTest {
         EpicResponseDto epicResponseDto = createShortDto(updateRequest.title(), 2L,
                 3L, updateRequest.deadline());
 
-        when(epicService.updateEpic(anyLong(), any()))
+        when(epicService.updateEpic(anyLong(), anyLong(), any()))
                 .thenReturn(epic);
         when(epicMapper.toEpicResponseDto(any()))
                 .thenReturn(epicResponseDto);
 
         mvc.perform(patch("/epics/1")
+                        .header("X-User-Id", userId)
                         .content(mapper.writeValueAsString(updateRequest))
                         .characterEncoding(StandardCharsets.UTF_8)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -273,7 +280,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.deadline", is(updateRequest.deadline().format(ofPattern(dateTimeFormat)))))
                 .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
-        verify(epicService, times(1)).updateEpic(anyLong(), any());
+        verify(epicService, times(1)).updateEpic(anyLong(), anyLong(), any());
         verify(epicMapper, times(1)).toEpicResponseDto(any());
     }
 
@@ -292,7 +299,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicResponseDto(any());
-        verify(epicService, never()).updateEpic(anyLong(), any());
+        verify(epicService, never()).updateEpic(anyLong(), anyLong(), any());
     }
 
     @Test
@@ -310,7 +317,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicResponseDto(any());
-        verify(epicService, never()).updateEpic(anyLong(), any());
+        verify(epicService, never()).updateEpic(anyLong(), anyLong(), any());
     }
 
     @Test
@@ -328,7 +335,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicResponseDto(any());
-        verify(epicService, never()).updateEpic(anyLong(), any());
+        verify(epicService, never()).updateEpic(anyLong(), anyLong(), any());
     }
 
     @Test
@@ -346,7 +353,7 @@ public class EpicControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(epicMapper, never()).toEpicResponseDto(any());
-        verify(epicService, never()).updateEpic(anyLong(), any());
+        verify(epicService, never()).updateEpic(anyLong(), anyLong(), any());
     }
 
     @Test
@@ -413,7 +420,7 @@ public class EpicControllerTest {
         EpicResponseDto responseDto = EpicResponseDto.builder()
                 .id(epic.getId())
                 .build();
-        
+
         when(epicService.deleteTaskFromEpic(anyLong(), anyLong(), anyLong()))
                 .thenReturn(epic);
         when(epicMapper.toEpicResponseDto(any()))
@@ -469,7 +476,7 @@ public class EpicControllerTest {
     void findEpicByIdWithTasks() {
         EpicResponseDto epicResponseDto = createShortDto("title", epic.getEventId(), 2L, LocalDateTime.now().plusYears(1));
 
-        when(epicService.updateEpic(anyLong(), any()))
+        when(epicService.updateEpic(anyLong(), anyLong(), any()))
                 .thenReturn(epic);
         when(epicMapper.toEpicResponseDto(any()))
                 .thenReturn(epicResponseDto);
@@ -481,7 +488,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
                 .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
                 .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class))
-                .andExpect(jsonPath("$.epicsTasks",is(notNullValue())));
+                .andExpect(jsonPath("$.epicsTasks", is(notNullValue())));
 
         verify(epicMapper, times(1)).toEpicResponseDto(any());
         verify(epicService, times(1)).findEpicById(anyLong());

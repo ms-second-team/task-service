@@ -82,6 +82,9 @@ public class TaskController {
             @ApiResponse(responseCode = "403", description = "User not authorized to modify task", content = {
                     @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))
             }),
+            @ApiResponse(responseCode = "404", description = "Task is not found", content = {
+                    @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))
+            }),
             @ApiResponse(responseCode = "500", description = "Unknown error", content = {
                     @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))
             })

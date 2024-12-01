@@ -1,5 +1,9 @@
 package ru.mssecondteam.taskservice.service.task;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.SneakyThrows;
+import org.apache.http.entity.ContentType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,12 +11,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import ru.mssecondteam.taskservice.dto.TaskSearchFilter;
 import ru.mssecondteam.taskservice.dto.TaskUpdateRequest;
+import ru.mssecondteam.taskservice.dto.event.EventDto;
+import ru.mssecondteam.taskservice.dto.event.TeamMemberDto;
+import ru.mssecondteam.taskservice.dto.event.TeamMemberRole;
 import ru.mssecondteam.taskservice.exception.NotAuthorizedException;
 import ru.mssecondteam.taskservice.exception.NotFoundException;
 import ru.mssecondteam.taskservice.model.Task;
@@ -22,6 +31,10 @@ import ru.mssecondteam.taskservice.service.TaskService;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyIterable;
 import static org.hamcrest.Matchers.greaterThan;
@@ -32,6 +45,10 @@ import static org.junit.Assert.assertThrows;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Transactional
+@AutoConfigureWireMock(port = 0)
+@TestPropertySource(properties = {
+        "event-service.url=localhost:${wiremock.server.port}"
+})
 class TaskServiceImplIT {
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
@@ -56,6 +73,8 @@ class TaskServiceImplIT {
     @Autowired
     private TaskService taskService;
 
+    private ObjectMapper objectMapper;
+
     private Task task;
 
     private Long userId;
@@ -64,11 +83,33 @@ class TaskServiceImplIT {
     void setUp() {
         task = createNewTask(1);
         userId = 4L;
+        objectMapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule());
     }
 
+    @SneakyThrows
     @Test
     @DisplayName("Create task")
     void createTask_shouldReturnTaskWithPositiveId() {
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task createdTask = taskService.createTask(userId, task);
 
         assertThat(createdTask, notNullValue());
@@ -78,8 +119,96 @@ class TaskServiceImplIT {
         assertThat(createdTask.getCreatedAt(), lessThanOrEqualTo(LocalDateTime.now()));
     }
 
+    @SneakyThrows
+    @Test
+    @DisplayName("Create task, assignee is not a team member")
+    void createTask_whenAssigneeIsNotATeamMember_shouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(44);
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
+                () -> taskService.createTask(userId, task));
+
+        assertThat(ex.getMessage(), is(String.format("User is with id '%s' not a team member for event with id '%s'",
+                task.getAssigneeId(), task.getEventId())));
+    }
+
+    @SneakyThrows
+    @Test
+    @DisplayName("Create task, user is not a team member or author")
+    void createTask_whenUserIsNotATeamMember_shouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(44);
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(task.getAssigneeId())
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
+                () -> taskService.createTask(userId, task));
+
+        assertThat(ex.getMessage(), is(String.format("User is with id '%s' not a team member for event with id '%s'",
+                userId, task.getEventId())));
+    }
+
+    @SneakyThrows
+    @Test
+    @DisplayName("Create task, event not found")
+    void createTask_whenEventNotFound_shouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(44);
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(task.getAssigneeId())
+                .role(TeamMemberRole.MANAGER)
+                .build();
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withStatus(404)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        NotFoundException ex = assertThrows(NotFoundException.class,
+                () -> taskService.createTask(userId, task));
+
+        assertThat(ex.getMessage(), is("Event was not found"));
+    }
+
     @Test
     @DisplayName("Update task")
+    @SneakyThrows
     void updateTask_whenUserIsAuthorized_shouldUpdateTask() {
         TaskUpdateRequest updateRequest = TaskUpdateRequest.builder()
                 .title("new title")
@@ -88,8 +217,40 @@ class TaskServiceImplIT {
                 .eventId(54L)
                 .status(TaskStatus.DONE)
                 .build();
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
 
         Task createdTask = taskService.createTask(userId, task);
+
+        stubFor(get(urlEqualTo("/events/" + updateRequest.eventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + updateRequest.eventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+
         Task updatedTask = taskService.updateTask(createdTask.getId(), userId, updateRequest);
 
         assertThat(updatedTask, notNullValue());
@@ -105,13 +266,104 @@ class TaskServiceImplIT {
     }
 
     @Test
-    @DisplayName("Update task's title")
-    void updateTask_whenOnlyTitleIsUpdated_shouldUpdateOnlyTaskTitle() {
+    @DisplayName("Update task, user is not a team member of author")
+    @SneakyThrows
+    void updateTask_whenUserInNotATeamMemberOfAuthor_shouldUpdateTask() {
         TaskUpdateRequest updateRequest = TaskUpdateRequest.builder()
                 .title("new title")
+                .description("new description")
+                .deadline(LocalDateTime.of(2040, 11, 11, 11, 11, 11))
+                .eventId(54L)
+                .status(TaskStatus.DONE)
+                .build();
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
                 .build();
 
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task createdTask = taskService.createTask(userId, task);
+
+        teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(task.getAssigneeId())
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + updateRequest.eventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + updateRequest.eventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
+                () -> taskService.updateTask(createdTask.getId(), userId, updateRequest));
+
+        assertThat(ex.getMessage(), is(String.format("User is with id '%s' not a team member for event with id '%s'",
+                userId, updateRequest.eventId())));
+    }
+
+    @Test
+    @DisplayName("Update task's title")
+    @SneakyThrows
+    void updateTask_whenOnlyTitleIsUpdated_shouldUpdateOnlyTaskTitle() {
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Task createdTask = taskService.createTask(userId, task);
+
+        TaskUpdateRequest updateRequest = TaskUpdateRequest.builder()
+                .title("new title")
+                .eventId(21L)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + updateRequest.eventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + updateRequest.eventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task updatedTask = taskService.updateTask(createdTask.getId(), userId, updateRequest);
 
         assertThat(updatedTask, notNullValue());
@@ -128,11 +380,45 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Update task by an unauthorized user")
+    @SneakyThrows
     void updateTask_whenUserIsNotAuthorized_shouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        Task createdTask = taskService.createTask(userId, task);
+
         TaskUpdateRequest updateRequest = TaskUpdateRequest.builder()
                 .title("new title")
+                .eventId(21L)
                 .build();
-        Task createdTask = taskService.createTask(userId, task);
+
+        stubFor(get(urlEqualTo("/events/" + updateRequest.eventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + updateRequest.eventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
         Long unAuthorizedId = 999L;
 
         NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
@@ -158,7 +444,27 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Find task by id")
+    @SneakyThrows
     void findTaskById_whenTasksExists_shouldReturnTasks() {
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         Task createdTask = taskService.createTask(userId, task);
 
         Task foundTask = taskService.findTaskById(createdTask.getId());
@@ -180,9 +486,50 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Search tasks by event id")
+    @SneakyThrows
     void searchTasks_whenTwoTasksWithDesiredEventId_shouldReturnTwoTasks() {
-        Task task2 = createNewTask(2);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task);
+
+        Task task2 = createNewTask(2);
+
+        EventDto event2 = createEvent(task2.getAssigneeId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task2);
 
         TaskSearchFilter filter = TaskSearchFilter.builder()
@@ -199,9 +546,50 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Search tasks by event id, second page")
+    @SneakyThrows
     void searchTasks_whenTwoTasksWithDesiredEventIdButSecondPage_shouldReturnEmptyList() {
-        Task task2 = createNewTask(2);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task);
+
+        Task task2 = createNewTask(2);
+
+        EventDto event2 = createEvent(task2.getAssigneeId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task2);
 
         TaskSearchFilter filter = TaskSearchFilter.builder()
@@ -216,9 +604,50 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Search tasks by event id")
+    @SneakyThrows
     void searchTasks_whenTwoTasksWithDesiredEventIdOnePerPage_shouldReturnOneTask() {
-        Task task2 = createNewTask(2);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task);
+
+        Task task2 = createNewTask(2);
+
+        EventDto event2 = createEvent(task2.getAssigneeId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task2);
 
         TaskSearchFilter filter = TaskSearchFilter.builder()
@@ -234,10 +663,51 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Search tasks by event id and assigneeId")
+    @SneakyThrows
     void searchTasks_whenSearchByEventIdAndAssigneeId_shouldReturnOneTask() {
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        taskService.createTask(userId, task);
+
         Task task2 = createNewTask(2);
         task2.setAssigneeId(45L);
-        taskService.createTask(userId, task);
+
+        EventDto event2 = createEvent(task2.getAssigneeId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task2);
 
         TaskSearchFilter filter = TaskSearchFilter.builder()
@@ -254,9 +724,51 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Search tasks by author id")
+    @SneakyThrows
     void searchTasks_whenSearchByAuthorId_shouldReturnOneTask() {
-        Task task2 = createNewTask(2);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId + 1)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         taskService.createTask(userId + 1, task);
+
+        Task task2 = createNewTask(2);
+
+        EventDto event2 = createEvent(task2.getAssigneeId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
+
         taskService.createTask(userId, task2);
 
         TaskSearchFilter filter = TaskSearchFilter.builder()
@@ -272,9 +784,50 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Search tasks by unknown author id")
+    @SneakyThrows
     void searchTasks_whenSearchByUnknownAuthorId_shouldReturnEmptyList() {
-        Task task2 = createNewTask(2);
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task);
+
+        Task task2 = createNewTask(2);
+
+        EventDto event2 = createEvent(task2.getAssigneeId());
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event2.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event2))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task2.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto2)))
+                        .withStatus(200)));
+
         taskService.createTask(userId, task2);
 
         Long unknownId = 999L;
@@ -290,7 +843,29 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Delete task by author")
+    @SneakyThrows
     void deleteTaskById_whenTaskExists_ShouldDeleteTask() {
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        taskService.createTask(userId, task);
+
         Task createdTask = taskService.createTask(userId, task);
 
         taskService.deleteTaskById(createdTask.getId(), userId);
@@ -303,9 +878,49 @@ class TaskServiceImplIT {
 
     @Test
     @DisplayName("Delete task by other user")
+    @SneakyThrows
     void deleteTaskById_whenTaskExistsButOtherUserTryToDelete_ShouldThrowNotAuthorizedException() {
+        EventDto event = createEvent(task.getAssigneeId());
+        TeamMemberDto teamMemberDto = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(userId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto)))
+                        .withStatus(200)));
+
+        taskService.createTask(userId, task);
+
         Task createdTask = taskService.createTask(userId, task);
         Long otherUserId = 99L;
+
+        TeamMemberDto teamMemberDto2 = TeamMemberDto.builder()
+                .eventId(event.id())
+                .userId(otherUserId)
+                .role(TeamMemberRole.MANAGER)
+                .build();
+
+        stubFor(get(urlEqualTo("/events/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(event))
+                        .withStatus(200)));
+
+        stubFor(get(urlEqualTo("/events/teams/" + task.getEventId()))
+                .willReturn(aResponse()
+                        .withHeader("Content-Type", ContentType.APPLICATION_JSON.getMimeType())
+                        .withBody(objectMapper.writeValueAsString(List.of(teamMemberDto, teamMemberDto2)))
+                        .withStatus(200)));
 
         NotAuthorizedException ex = assertThrows(NotAuthorizedException.class,
                 () -> taskService.deleteTaskById(createdTask.getId(), otherUserId));
@@ -333,6 +948,17 @@ class TaskServiceImplIT {
                 .status(TaskStatus.TODO)
                 .assigneeId(3L)
                 .eventId(5L)
+                .build();
+    }
+
+    private EventDto createEvent(long id) {
+        return EventDto.builder()
+                .id(1L)
+                .name("event name " + id)
+                .description("event description " + id)
+                .ownerId(id)
+                .startDateTime(LocalDateTime.now().plusDays(id))
+                .endDateTime(LocalDateTime.now().plusMonths(id))
                 .build();
     }
 }

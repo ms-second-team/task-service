@@ -60,11 +60,12 @@ public class EpicController {
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public EpicResponseDto createEpic(@Parameter(description = "New epic")
+    public EpicResponseDto createEpic(@RequestHeader("X-User-Id") @Positive Long userId,
+                                      @Parameter(description = "New epic")
                                       @RequestBody @Valid NewEpicRequest newEpic) {
         log.debug("Creating epic '{}'", newEpic.title());
         final Epic epic = epicMapper.toEpicModel(newEpic);
-        final Epic createdEpic = epicService.createEpic(epic);
+        final Epic createdEpic = epicService.createEpic(userId, epic);
         return epicMapper.toEpicResponseDto(createdEpic);
     }
 
@@ -84,12 +85,13 @@ public class EpicController {
             })
     })
     @PatchMapping("/{epicId}")
-    public EpicResponseDto updateEpic(@Parameter(description = "Epic id")
+    public EpicResponseDto updateEpic(@RequestHeader("X-User-Id") @Positive Long userId,
+                                      @Parameter(description = "Epic id")
                                       @PathVariable @Positive Long epicId,
                                       @Parameter(description = "Epic update data")
                                       @RequestBody @Valid EpicUpdateRequest updateRequest) {
         log.debug("Updating epic with id '{}'", epicId);
-        final Epic updatedEpic = epicService.updateEpic(epicId, updateRequest);
+        final Epic updatedEpic = epicService.updateEpic(userId, epicId, updateRequest);
         return epicMapper.toEpicResponseDto(updatedEpic);
     }
 
