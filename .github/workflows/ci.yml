@@ -16,7 +16,7 @@ jobs:
       with:
         reporter: github-pr-check
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        level: warning
+        level: error
         fail_level: error
 
     - name: Set up JDK 17
