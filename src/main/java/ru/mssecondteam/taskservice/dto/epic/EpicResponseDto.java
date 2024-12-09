@@ -1,6 +1,5 @@
 package ru.mssecondteam.taskservice.dto.epic;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import ru.mssecondteam.taskservice.dto.TaskDto;
@@ -23,7 +22,7 @@ public record EpicResponseDto(
 
         @Schema(description = "Epic event id")
         Long eventId,
-        @JsonFormat(pattern = "dd.MM.yyyy HH:mm")
+
         @Schema(description = "Epic deadline")
         LocalDateTime deadline,
 
