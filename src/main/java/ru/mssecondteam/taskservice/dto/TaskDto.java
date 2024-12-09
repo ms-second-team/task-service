@@ -1,6 +1,5 @@
 package ru.mssecondteam.taskservice.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import ru.mssecondteam.taskservice.model.TaskStatus;
@@ -20,11 +19,10 @@ public record TaskDto(
         @Schema(description = "Task description")
         String description,
 
-        @JsonFormat(pattern = "dd.MM.yyyy HH:mm")
         @Schema(description = "Task creation date")
         LocalDateTime createdAt,
 
-        @JsonFormat(pattern = "dd.MM.yyyy HH:mm")
+//        @JsonFormat(pattern = "dd.MM.yyyy HH:mm")
         @Schema(description = "Task deadline")
         LocalDateTime deadline,
 

@@ -1,6 +1,5 @@
 package ru.mssecondteam.taskservice.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Pattern;
@@ -22,7 +21,6 @@ public record TaskUpdateRequest(
         String description,
 
         @Future(message = "Deadline must be in future")
-        @JsonFormat(pattern = "HH:ss:mm dd.MM.yyyy")
         @Schema(description = "Task deadline")
         LocalDateTime deadline,
 

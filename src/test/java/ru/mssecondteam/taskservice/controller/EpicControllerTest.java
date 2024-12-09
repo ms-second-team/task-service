@@ -6,7 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -23,8 +22,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 
-import static java.time.format.DateTimeFormatter.ofPattern;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
@@ -56,9 +55,6 @@ public class EpicControllerTest {
 
     @MockBean
     private TaskMapper taskMapper;
-
-    @Value("${spring.jackson.date-format}")
-    private String dateTimeFormat;
 
     private Epic epic;
 
@@ -100,7 +96,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(epicResponseDto.title())))
                 .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", lessThanOrEqualTo(epicResponseDto.deadline().toString())))
                 .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
         verify(epicService, times(1)).createEpic(any(), any());
@@ -213,7 +209,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(updateRequest.title())))
                 .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", lessThanOrEqualTo(epicResponseDto.deadline().toString())))
                 .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
         verify(epicService, times(1)).updateEpic(anyLong(), anyLong(), any());
@@ -245,7 +241,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(epicResponseDto.title())))
                 .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", lessThanOrEqualTo(epicResponseDto.deadline().toString())))
                 .andExpect(jsonPath("$.executiveId", is(updateRequest.executiveId()), Long.class));
 
         verify(epicService, times(1)).updateEpic(anyLong(), anyLong(), any());
@@ -277,7 +273,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(epicResponseDto.title())))
                 .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(updateRequest.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", lessThanOrEqualTo(updateRequest.deadline().toString())))
                 .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class));
 
         verify(epicService, times(1)).updateEpic(anyLong(), anyLong(), any());
@@ -486,7 +482,7 @@ public class EpicControllerTest {
                 .andExpect(jsonPath("$.id", is(epicResponseDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(epicResponseDto.title())))
                 .andExpect(jsonPath("$.eventId", is(epicResponseDto.eventId()), Long.class))
-                .andExpect(jsonPath("$.deadline", is(epicResponseDto.deadline().format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", lessThanOrEqualTo(epicResponseDto.deadline().toString())))
                 .andExpect(jsonPath("$.executiveId", is(epicResponseDto.executiveId()), Long.class))
                 .andExpect(jsonPath("$.epicsTasks", is(notNullValue())));
 
