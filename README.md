@@ -32,7 +32,7 @@
 
 • **PATCH** _/tasks_ - обновление задачи;
 
-• **GET** _/tasks_/{taskId}_ - получение задачи по id;
+• **GET** _/tasks/{taskId}_ - получение задачи по id;
 
 • **GET** _/tasks?page={page}&size={size}&assigneeId={assigneeId}&eventId={eventId}&authorId={authorId}_ - поиск задач с пагинацией. Возможность фильтрации по id события и/или id автора и/или id ответственного за задачу;
 
