@@ -6,7 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
@@ -28,7 +27,6 @@ import ru.mssecondteam.taskservice.service.TaskService;
 import java.time.LocalDateTime;
 import java.util.Collections;
 
-import static java.time.format.DateTimeFormatter.ofPattern;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -71,9 +69,6 @@ class TaskControllerTest {
     private Long userId;
 
     private Long taskId;
-
-    @Value("${spring.jackson.date-format}")
-    private String dateTimeFormat;
 
 
     @BeforeEach
@@ -124,8 +119,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.id", is(taskDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(taskDto.title())))
                 .andExpect(jsonPath("$.description", is(taskDto.description())))
-                .andExpect(jsonPath("$.deadline", is(taskDto.deadline()
-                        .format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", is(taskDto.deadline().toString())))
                 .andExpect(jsonPath("$.status", is(taskDto.status().name())))
                 .andExpect(jsonPath("$.assigneeId", is(taskDto.assigneeId()), Long.class))
                 .andExpect(jsonPath("$.eventId", is(taskDto.eventId()), Long.class))
@@ -351,8 +345,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.id", is(taskDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(taskDto.title())))
                 .andExpect(jsonPath("$.description", is(taskDto.description())))
-                .andExpect(jsonPath("$.deadline", is(taskDto.deadline()
-                        .format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", is(taskDto.deadline().toString())))
                 .andExpect(jsonPath("$.status", is(taskDto.status().name())))
                 .andExpect(jsonPath("$.assigneeId", is(taskDto.assigneeId()), Long.class))
                 .andExpect(jsonPath("$.eventId", is(taskDto.eventId()), Long.class))
@@ -384,8 +377,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.id", is(taskDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(taskDto.title())))
                 .andExpect(jsonPath("$.description", is(taskDto.description())))
-                .andExpect(jsonPath("$.deadline", is(taskDto.deadline()
-                        .format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", is(taskDto.deadline().toString())))
                 .andExpect(jsonPath("$.status", is(taskDto.status().name())))
                 .andExpect(jsonPath("$.assigneeId", is(taskDto.assigneeId()), Long.class))
                 .andExpect(jsonPath("$.eventId", is(taskDto.eventId()), Long.class))
@@ -514,8 +506,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.id", is(taskDto.id()), Long.class))
                 .andExpect(jsonPath("$.title", is(taskDto.title())))
                 .andExpect(jsonPath("$.description", is(taskDto.description())))
-                .andExpect(jsonPath("$.deadline", is(taskDto.deadline()
-                        .format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.deadline", is(taskDto.deadline().toString())))
                 .andExpect(jsonPath("$.status", is(taskDto.status().name())))
                 .andExpect(jsonPath("$.assigneeId", is(taskDto.assigneeId()), Long.class))
                 .andExpect(jsonPath("$.eventId", is(taskDto.eventId()), Long.class))
@@ -563,8 +554,7 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$.[0].id", is(taskDto.id()), Long.class))
                 .andExpect(jsonPath("$.[0].title", is(taskDto.title())))
                 .andExpect(jsonPath("$.[0].description", is(taskDto.description())))
-                .andExpect(jsonPath("$.[0].deadline", is(taskDto.deadline()
-                        .format(ofPattern(dateTimeFormat)))))
+                .andExpect(jsonPath("$.[0].deadline", is(taskDto.deadline().toString())))
                 .andExpect(jsonPath("$.[0].status", is(taskDto.status().name())))
                 .andExpect(jsonPath("$.[0].assigneeId", is(taskDto.assigneeId()), Long.class))
                 .andExpect(jsonPath("$.[0].eventId", is(taskDto.eventId()), Long.class))
